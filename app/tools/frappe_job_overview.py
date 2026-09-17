@@ -36,5 +36,5 @@ def register_tool(mcp) -> None:
         return ToolResult(
             content=f"Loaded project overview for {project}.",
             structured_content={"doctype": "Project", "record": overview},
-            meta={"ui": {"resourceUri": VIEW_URI}, "ui/resourceUri": VIEW_URI},
+            meta={"ui": {"resourceUri": VIEW_URI}},
         )
