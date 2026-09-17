@@ -20,7 +20,21 @@ def register_tool(mcp) -> None:
             "order_by": "modified desc",
         }
         if query:
-            params["filters"] = json.dumps([[doctype, "name", "like", f"%{query}%"]])
+            if doctype == "CRM Deal":
+                params["or_filters"] = json.dumps([
+                    ["name", "like", f"%{query}%"],
+                    ["title", "like", f"%{query}%"],
+                    ["organization", "like", f"%{query}%"],
+                ])
+            elif doctype == "CRM Lead":
+                params["or_filters"] = json.dumps([
+                    ["name", "like", f"%{query}%"],
+                    ["lead_name", "like", f"%{query}%"],
+                    ["organization", "like", f"%{query}%"],
+                    ["email_id", "like", f"%{query}%"],
+                ])
+            else:
+                params["filters"] = json.dumps([["name", "like", f"%{query}%"]])
         result = await get(f"/api/resource/{path_part(doctype)}", params)
         records = result if isinstance(result, list) else []
         if not records:
