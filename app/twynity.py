@@ -35,8 +35,10 @@ def register_routes(mcp):
             }
         )
 
-    @mcp.custom_route("/api/v1/configuration", methods=["POST"])
+    @mcp.custom_route("/api/v1/configuration", methods=["POST", "OPTIONS"])
     async def configure_frappe(request: Request) -> JSONResponse:
+        if request.method == "OPTIONS":
+            return JSONResponse({}, status_code=204)
         user = get_current_user()
         payload = FrappeConnection.model_validate(await request.json())
         await save_connection(user["id"], str(payload.frappe_base_url), payload.api_key, payload.api_secret)
