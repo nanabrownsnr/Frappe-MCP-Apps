@@ -4,19 +4,10 @@ from typing import Any
 from urllib.parse import quote
 
 import httpx
-from fastmcp.tools import ToolResult
 
 from app.auth import get_current_user
 from app.config import settings
 from app.frappe_connection import get_connection
-
-
-def ui_result(uri: str, content: str, data: dict[str, Any]) -> ToolResult:
-    return ToolResult(
-        content=content,
-        structured_content=data,
-        meta={"ui": {"resourceUri": uri}, "ui/resourceUri": uri},
-    )
 
 
 def path_part(value: str) -> str:
