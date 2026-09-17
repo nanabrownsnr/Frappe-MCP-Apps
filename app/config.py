@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     # Frappe/ERPNext is contacted with the caller's own seat credential. These
     # are deliberately only the endpoint and policy settings; API secrets must
     # arrive per request and are never stored by this service.
-    FRAPPE_TIMEOUT_SECONDS: float = 20.0
+    FRAPPE_TIMEOUT_SECONDS: float = 60.0
     # Maximum records returned by one list/search page; pagination can retrieve
     # more records through successive calls. This is not a database total cap.
     FRAPPE_MAX_LIMIT: int = 100
