@@ -18,6 +18,20 @@ function RecordView({ value }) {
         </section>)}</>;
 }
 
+function DealPipeline({ records }) {
+    const serviceKey = Object.keys(records[0] ?? {}).find((key) =>
+        ["service_line", "custom_service_line", "business_unit", "vertical"].includes(key),
+    );
+    const services = ["All", ...new Set(records.map((row) => row[serviceKey]).filter(Boolean))];
+    const [service, setService] = useState("All");
+    const filtered = service === "All" ? records : records.filter((row) => row[serviceKey] === service);
+    const statuses = [...new Set(records.map((row) => row.status || "Uncategorized"))];
+    return <section className="pipeline-view">
+        <div className="pipeline-toolbar"><span>{filtered.length} deals</span>{serviceKey ? <label>Service line <select value={service} onChange={(event) => setService(event.target.value)}>{services.map((item) => <option key={item}>{item}</option>)}</select></label> : null}</div>
+        <div className="pipeline-columns">{statuses.map((status) => <div className="pipeline-column" key={status}><h2>{label(status)} <small>{filtered.filter((row) => (row.status || "Uncategorized") === status).length}</small></h2>{filtered.filter((row) => (row.status || "Uncategorized") === status).map((deal, index) => <article className="deal-card" key={deal.name ?? index}><strong>{deal.title || deal.deal_name || deal.name}</strong><span>{deal.organization || deal.company || "No organization"}</span><b>{deal.deal_value ? `${deal.currency || ""} ${deal.deal_value}` : "No value"}</b>{serviceKey && deal[serviceKey] ? <em>{deal[serviceKey]}</em> : null}</article>)}</div>)}</div>
+    </section>;
+}
+
 export default function FrappeDashboard() {
     const [data, setData] = useState(null);
     const onAppCreated = useCallback((createdApp) => { createdApp.ontoolresult = (result) => setData(result.structuredContent ?? result); }, []);
@@ -29,6 +43,6 @@ export default function FrappeDashboard() {
     const record = data?.record ?? (!Array.isArray(data) && data?.name ? data : null);
     return <main className="card" data-host-theme={theme} aria-live="polite"><header><p className="eyebrow">{data?.doctype ? label(data.doctype) : "Frappe"}</p><h1>{record?.name ?? (rows.length ? `${rows.length} records` : "Record details")}</h1></header>
         {error ? <p>{error.message}</p> : !isConnected ? <p>Connecting to MCP…</p> : null}
-        {record ? <RecordView value={record} /> : <section className="records">{rows.map((row, index) => <article key={row.name ?? index}><RecordView value={row} /></article>)}</section>}
+        {record ? <RecordView value={record} /> : data?.doctype === "CRM Deal" ? <DealPipeline records={rows} /> : <section className="records">{rows.map((row, index) => <article key={row.name ?? index}><RecordView value={row} /></article>)}</section>}
     </main>;
 }
