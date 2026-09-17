@@ -24,7 +24,7 @@ def register_tool(mcp) -> None:
         """List current records as the calling user's Frappe seat."""
         doctype = normalize_doctype(doctype)
         if fields is None and doctype == "CRM Deal":
-            fields = ["name", "organization", "annual_revenue", "status", "email", "currency", "mobile_no", "deal_owner", "custom_service_line", "expected_closure_date", "modified"]
+            fields = ["name", "organization", "annual_revenue", "status", "email", "currency", "mobile_no", "deal_owner", "custom_service_line", "expected_closure_date", "modified", "_assign"]
         elif fields is None and doctype == "CRM Lead":
             fields = ["name", "lead_name", "status", "source", "email_id", "phone", "organization", "lead_owner"]
         params: dict[str, Any] = {
@@ -42,6 +42,14 @@ def register_tool(mcp) -> None:
             return ToolResult(content=f"Found 0 {doctype} records.")
         return ToolResult(
             content=f"Found {len(records)} {doctype} records.",
-            structured_content={"doctype": doctype, "records": records},
+            structured_content={"doctype": doctype, "records": records, **({"columns": [
+                {"label": "Organization", "key": "organization", "type": "Link"},
+                {"label": "Annual Revenue", "key": "annual_revenue", "type": "Currency"},
+                {"label": "Status", "key": "status", "type": "Link"},
+                {"label": "Email", "key": "email", "type": "Data"},
+                {"label": "Mobile No.", "key": "mobile_no", "type": "Data"},
+                {"label": "Assigned To", "key": "_assign", "type": "Text"},
+                {"label": "Last Modified", "key": "modified", "type": "Datetime"},
+            ]} if doctype == "CRM Deal" else {})},
             meta={"ui": {"resourceUri": VIEW_URI}},
         )
