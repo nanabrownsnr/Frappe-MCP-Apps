@@ -97,7 +97,12 @@ middleware = [
 ]
 
 
-app = mcp.http_app(middleware=middleware)
+app = mcp.http_app(
+    middleware=middleware,
+    transport="streamable-http",
+    stateless_http=True,
+    json_response=True,
+)
 
 if __name__ == "__main__":
     import uvicorn
