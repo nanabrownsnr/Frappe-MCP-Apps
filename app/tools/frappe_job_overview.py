@@ -5,7 +5,7 @@ from typing import Any
 
 from fastmcp.apps import AppConfig
 
-from app.tools.frappe_common import get, path_part
+from app.tools.frappe_common import get, path_part, ui_result
 from app.ui.frappe_ui.resource import VIEW_URI
 
 
@@ -18,7 +18,7 @@ async def _slice(doctype: str, project: str) -> Any:
 
 def register_tool(mcp) -> None:
     @mcp.tool(app=AppConfig(resource_uri=VIEW_URI, visibility=["model", "app"]))
-    async def frappe_job_overview(project: str) -> dict[str, Any]:
+    async def frappe_job_overview(project: str) -> Any:
         """Return a project and its related invoices and timesheets."""
         values = await asyncio.gather(
             get(f"/api/resource/Project/{path_part(project)}"),
@@ -28,7 +28,12 @@ def register_tool(mcp) -> None:
             return_exceptions=True,
         )
         names = ("project", "sales_invoices", "purchase_invoices", "timesheets")
-        return {
+        overview = {
             name: (str(value) if isinstance(value, BaseException) else value)
             for name, value in zip(names, values, strict=True)
         }
+        return ui_result(
+            VIEW_URI,
+            f"Loaded project overview for {project}.",
+            {"doctype": "Project", "record": overview},
+        )
