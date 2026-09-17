@@ -1,8 +1,8 @@
-:root { font-family: var(--font-sans, inherit); color: var(--color-text-primary, inherit); background: var(--color-background-primary, transparent); }
+:root { font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif); color: var(--color-text-primary, #202124); background: var(--color-background-primary, #ffffff); }
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; min-height: 100%; margin: 0; }
-body { background: transparent; }
-.card { width: 100%; min-height: 100%; padding: 1rem; color: var(--color-text-primary, inherit); background: var(--color-background-primary, transparent); box-shadow: none; filter: none; }
+body { background: var(--color-background-primary, #ffffff); }
+.card { width: 100%; min-height: 100%; padding: 1rem; color: var(--color-text-primary, #202124); background: var(--color-background-primary, #ffffff); box-shadow: none; filter: none; }
 .eyebrow { margin: 0 0 .35rem; color: var(--color-text-secondary, inherit); font-size: .72rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
 h1 { margin: 0 0 1rem; font-size: 1.35rem; line-height: 1.25; }
 .data-section { margin-top: 1rem; }
