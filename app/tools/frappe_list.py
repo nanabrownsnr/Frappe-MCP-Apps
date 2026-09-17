@@ -22,6 +22,11 @@ def register_tool(mcp) -> None:
         start: int = 0,
     ) -> ToolResult:
         """List current records as the calling user's Frappe seat."""
+        doctype = normalize_doctype(doctype)
+        if fields is None and doctype == "CRM Deal":
+            fields = ["name", "title", "status", "deal_value", "currency", "closing_date", "organization", "lead", "owner"]
+        elif fields is None and doctype == "CRM Lead":
+            fields = ["name", "lead_name", "status", "source", "email_id", "phone", "organization", "lead_owner"]
         params: dict[str, Any] = {
             "fields": json.dumps(fields or ["name"]),
             "limit_page_length": max(1, min(limit, settings.FRAPPE_MAX_LIMIT)),
@@ -31,7 +36,6 @@ def register_tool(mcp) -> None:
             params["filters"] = json.dumps(filters)
         if order_by:
             params["order_by"] = order_by
-        doctype = normalize_doctype(doctype)
         result = await get(f"/api/resource/{path_part(doctype)}", params)
         records = result if isinstance(result, list) else []
         if not records:

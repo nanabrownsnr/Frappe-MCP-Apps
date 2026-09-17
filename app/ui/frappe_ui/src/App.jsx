@@ -26,9 +26,11 @@ function DealPipeline({ records }) {
     const [service, setService] = useState("All");
     const filtered = service === "All" ? records : records.filter((row) => row[serviceKey] === service);
     const statuses = [...new Set(records.map((row) => row.status || "Uncategorized"))];
+    const total = records.reduce((sum, row) => sum + Number(row.deal_value || 0), 0);
     return <section className="pipeline-view">
-        <div className="pipeline-toolbar"><span>{filtered.length} deals</span>{serviceKey ? <label>Service line <select value={service} onChange={(event) => setService(event.target.value)}>{services.map((item) => <option key={item}>{item}</option>)}</select></label> : null}</div>
-        <div className="pipeline-columns">{statuses.map((status) => <div className="pipeline-column" key={status}><h2>{label(status)} <small>{filtered.filter((row) => (row.status || "Uncategorized") === status).length}</small></h2>{filtered.filter((row) => (row.status || "Uncategorized") === status).map((deal, index) => <article className="deal-card" key={deal.name ?? index}><strong>{deal.title || deal.deal_name || deal.name}</strong><span>{deal.organization || deal.company || "No organization"}</span><b>{deal.deal_value ? `${deal.currency || ""} ${deal.deal_value}` : "No value"}</b>{serviceKey && deal[serviceKey] ? <em>{deal[serviceKey]}</em> : null}</article>)}</div>)}</div>
+        <div className="pipeline-summary"><strong>{filtered.length} open deals</strong><span>{total ? `${records[0]?.currency || ""} ${total.toLocaleString()}` : "No value"}</span><small>Click a card to view it in Frappe</small></div>
+        <div className="pipeline-toolbar"><span>Grouped by status · ranked by value</span>{serviceKey ? <label>Service line <select value={service} onChange={(event) => setService(event.target.value)}>{services.map((item) => <option key={item}>{item}</option>)}</select></label> : null}</div>
+        <div className="pipeline-columns">{statuses.map((status) => <div className="pipeline-column" key={status}><h2>{label(status)} <small>{filtered.filter((row) => (row.status || "Uncategorized") === status).length}</small></h2>{filtered.filter((row) => (row.status || "Uncategorized") === status).map((deal, index) => <article className="deal-card" key={deal.name ?? index}><strong>{deal.title || deal.deal_name || deal.name}</strong><span>{deal.organization || deal.company || "No organization"}</span><b>{deal.deal_value ? `${deal.currency || ""} ${Number(deal.deal_value).toLocaleString()}` : "No value"}</b><span>{deal.closing_date ? `Close ${deal.closing_date}` : deal.owner ? `Owner: ${deal.owner}` : ""}</span>{serviceKey && deal[serviceKey] ? <em>{deal[serviceKey]}</em> : null}</article>)}</div>)}</div>
     </section>;
 }
 
