@@ -16,7 +16,16 @@ def path_part(value: str) -> str:
 
 def normalize_doctype(value: str) -> str:
     """Accept common shorthand names for Frappe CRM DocTypes."""
-    return {"Lead": "CRM Lead", "Deal": "CRM Deal"}.get(value.strip(), value.strip())
+    cleaned = value.strip()
+    aliases = {
+        "lead": "CRM Lead",
+        "leads": "CRM Lead",
+        "deal": "CRM Deal",
+        "deals": "CRM Deal",
+        "opportunity": "CRM Deal",
+        "opportunities": "CRM Deal",
+    }
+    return aliases.get(cleaned.casefold(), cleaned)
 
 
 async def connection() -> tuple[str, str]:
