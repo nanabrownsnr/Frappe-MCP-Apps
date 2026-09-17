@@ -82,15 +82,9 @@ register_resource(mcp)
 register_routes(mcp)
 
 
-match settings.ENVIRONMENT:
-    case "development":
-        origins = ["*"]
-    case "staging":
-        origins = ["https://staging.twynity.ai", "https://twynity-staging.mis.4th-ir.com"]
-    case "production":
-        origins = ["https://twynity.ai", "https://twynity.mis.4th-ir.com"]
-    case _:
-        origins = ["*"]
+origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+if not origins:
+    raise RuntimeError("ALLOWED_ORIGINS must contain at least one origin")
 
 middleware = [
     Middleware(
