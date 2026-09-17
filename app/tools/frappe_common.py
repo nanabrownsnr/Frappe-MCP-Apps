@@ -14,6 +14,11 @@ def path_part(value: str) -> str:
     return quote(value, safe="")
 
 
+def normalize_doctype(value: str) -> str:
+    """Accept common shorthand names for Frappe CRM DocTypes."""
+    return {"Lead": "CRM Lead", "Deal": "CRM Deal"}.get(value.strip(), value.strip())
+
+
 async def connection() -> tuple[str, str]:
     stored = await get_connection(get_current_user()["id"])
     if stored is None:
@@ -44,6 +49,9 @@ async def get(path: str, params: dict[str, Any] | None = None) -> Any:
             response = await client.get(f"{base}{path}", params=fallback_params, headers={"Authorization": auth})
     if response.status_code in (401, 403):
         raise PermissionError("Frappe denied this read.")
+    if response.status_code == 417:
+        detail = response.text[:500].replace("\n", " ")
+        raise RuntimeError(f"Frappe rejected the request (417). Check the DocType, fields, or filters. {detail}")
     response.raise_for_status()
     body = response.json()
     return redact(body.get("data", body.get("message", body)))

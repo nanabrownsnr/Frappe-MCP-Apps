@@ -7,7 +7,7 @@ from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
 from app.config import settings
-from app.tools.frappe_common import get, path_part
+from app.tools.frappe_common import get, normalize_doctype, path_part
 from app.ui.frappe_ui.resource import VIEW_URI
 
 
@@ -31,6 +31,7 @@ def register_tool(mcp) -> None:
             params["filters"] = json.dumps(filters)
         if order_by:
             params["order_by"] = order_by
+        doctype = normalize_doctype(doctype)
         result = await get(f"/api/resource/{path_part(doctype)}", params)
         records = result if isinstance(result, list) else []
         if not records:
