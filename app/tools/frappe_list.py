@@ -24,7 +24,7 @@ def register_tool(mcp) -> None:
         """List current records as the calling user's Frappe seat."""
         doctype = normalize_doctype(doctype)
         if fields is None and doctype == "CRM Deal":
-            fields = ["name", "title", "status", "deal_value", "currency", "closing_date", "organization", "lead", "owner"]
+            fields = ["name", "organization", "annual_revenue", "status", "email", "currency", "mobile_no", "deal_owner", "custom_service_line", "expected_closure_date", "modified"]
         elif fields is None and doctype == "CRM Lead":
             fields = ["name", "lead_name", "status", "source", "email_id", "phone", "organization", "lead_owner"]
         params: dict[str, Any] = {
