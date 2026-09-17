@@ -34,6 +34,14 @@ async def get(path: str, params: dict[str, Any] | None = None) -> Any:
     base, auth = await connection()
     async with httpx.AsyncClient(timeout=settings.FRAPPE_TIMEOUT_SECONDS) as client:
         response = await client.get(f"{base}{path}", params=params, headers={"Authorization": auth})
+        # CRM installations differ in their Lead/Deal field names. Frappe
+        # answers an invalid `fields` projection with 417. Retry once without
+        # that optional projection; permissions still apply and redaction is
+        # performed below before the result reaches the model or UI.
+        if response.status_code == 417 and params and "fields" in params:
+            fallback_params = dict(params)
+            fallback_params.pop("fields")
+            response = await client.get(f"{base}{path}", params=fallback_params, headers={"Authorization": auth})
     if response.status_code in (401, 403):
         raise PermissionError("Frappe denied this read.")
     response.raise_for_status()
