@@ -14,7 +14,7 @@ load_dotenv()
 
 # Put your MCP name here. Keeping this value in one place makes the service
 # identity, display title, and log filenames easy to customise.
-mcp_name = ""
+mcp_name = "Frappe-MCP-Apps"
 
 
 def configured_mcp_name() -> str:
@@ -83,6 +83,8 @@ class Settings(BaseSettings):
     # are deliberately only the endpoint and policy settings; API secrets must
     # arrive per request and are never stored by this service.
     FRAPPE_TIMEOUT_SECONDS: float = 20.0
+    # Maximum records returned by one list/search page; pagination can retrieve
+    # more records through successive calls. This is not a database total cap.
     FRAPPE_MAX_LIMIT: int = 100
     DATABASE_URL: str
     ENCRYPTION_KEY: str
