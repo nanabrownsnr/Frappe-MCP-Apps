@@ -33,6 +33,8 @@ def register_tool(mcp) -> None:
             name: (str(value) if isinstance(value, BaseException) else value)
             for name, value in zip(names, values, strict=True)
         }
+        if not isinstance(overview["project"], dict) or not overview["project"]:
+            return ToolResult(content=f"No project record found for {project}.")
         return ToolResult(
             content=f"Loaded project overview for {project}.",
             structured_content={"doctype": "Project", "record": overview},

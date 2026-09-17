@@ -13,6 +13,8 @@ def register_tool(mcp) -> None:
         """Fetch one current record as the calling user's Frappe seat."""
         result = await get(f"/api/resource/{path_part(doctype)}/{path_part(name)}")
         record = result if isinstance(result, dict) else {}
+        if not record:
+            return ToolResult(content=f"No {doctype} record found for {name}.")
         return ToolResult(
             content=f"Loaded {doctype} {name}.",
             structured_content={"doctype": doctype, "record": record},

@@ -33,6 +33,8 @@ def register_tool(mcp) -> None:
             params["order_by"] = order_by
         result = await get(f"/api/resource/{path_part(doctype)}", params)
         records = result if isinstance(result, list) else []
+        if not records:
+            return ToolResult(content=f"Found 0 {doctype} records.")
         return ToolResult(
             content=f"Found {len(records)} {doctype} records.",
             structured_content={"doctype": doctype, "records": records},
