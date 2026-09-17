@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ALLOWED_ORIGINS: str = "*"
     RELEASE_ID: str = "1.0.0"
+    PUBLIC_URL: str = "http://localhost:8000"
     PERSONA_ID_HEADER: str = "Persona-Id"
 
     # Usage reporting
