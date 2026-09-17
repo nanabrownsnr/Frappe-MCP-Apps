@@ -4,11 +4,11 @@ FROM node:22-alpine AS ui-builder
 
 WORKDIR /ui
 
-COPY app/ui/say_hello/package.json app/ui/say_hello/package-lock.json ./
+COPY app/ui/frappe_ui/package.json app/ui/frappe_ui/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-COPY app/ui/say_hello/index.html app/ui/say_hello/vite.config.js ./
-COPY app/ui/say_hello/src/ ./src/
+COPY app/ui/frappe_ui/index.html app/ui/frappe_ui/vite.config.js ./
+COPY app/ui/frappe_ui/src/ ./src/
 RUN npm run build
 
 
@@ -26,7 +26,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 
 COPY app/ ./app/
-COPY --from=ui-builder /ui/dist/ ./app/ui/say_hello/dist/
+COPY --from=ui-builder /ui/dist/ ./app/ui/frappe_ui/dist/
 
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser

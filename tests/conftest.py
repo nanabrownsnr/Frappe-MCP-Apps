@@ -17,6 +17,8 @@ os.environ.setdefault("LICENSE_KEY", "test-license")
 os.environ.setdefault("LICENSE_SERVER_BASE_URL", "http://license.invalid")
 os.environ.setdefault("LICENSE_SERVER_JWKS_ENDPOINT", "/.well-known/jwks.json")
 os.environ.setdefault("LICENSE_SERVER_ACTIVATION_ENDPOINT", "/activate")
+os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost/test")
+os.environ.setdefault("ENCRYPTION_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
 
 
 @pytest.fixture

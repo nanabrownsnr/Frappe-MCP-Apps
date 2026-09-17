@@ -17,16 +17,25 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.auth import get_auth_provider
 from app.config import settings
+from app.frappe_connection import ensure_schema
 from app.license import license_watcher
-from app.tools.say_hello import register_tool as register_say_hello
+from app.tools.frappe_count import register_tool as register_frappe_count
+from app.tools.frappe_doctypes import register_tool as register_frappe_doctypes
+from app.tools.frappe_get import register_tool as register_frappe_get
+from app.tools.frappe_job_overview import register_tool as register_frappe_job_overview
+from app.tools.frappe_list import register_tool as register_frappe_list
+from app.tools.frappe_schema import register_tool as register_frappe_schema
+from app.tools.frappe_search import register_tool as register_frappe_search
 from app.twynity import register_routes
-from app.ui.say_hello.resource import register_resource
+from app.ui.frappe_ui.resource import register_resource
 from app.usage import save_usage_report
 
 logger = getLogger(__name__)
 
+
 @asynccontextmanager
 async def app_lifespan(server):
+    await ensure_schema()
     task = asyncio.create_task(license_watcher())
     try:
         yield
@@ -35,6 +44,7 @@ async def app_lifespan(server):
         with suppress(asyncio.CancelledError):
             await task
 
+
 mcp = FastMCP(
     settings.APP_TITLE,
     auth=get_auth_provider(),
@@ -42,7 +52,14 @@ mcp = FastMCP(
 )
 
 
-register_say_hello(mcp)
+register_frappe_list(mcp)
+register_frappe_get(mcp)
+register_frappe_search(mcp)
+register_frappe_count(mcp)
+register_frappe_doctypes(mcp)
+register_frappe_schema(mcp)
+register_frappe_job_overview(mcp)
+
 
 class UsageTrackingMiddleware(MCPMiddleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
@@ -57,6 +74,8 @@ class UsageTrackingMiddleware(MCPMiddleware):
             logger.exception("Usage tracking failed — continuing with tool call anyway")
 
         return await call_next(context)
+
+
 mcp.add_middleware(UsageTrackingMiddleware())
 
 register_resource(mcp)
@@ -88,4 +107,5 @@ app = mcp.http_app(middleware=middleware)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
