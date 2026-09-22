@@ -9,7 +9,11 @@ from app.tools.frappe_common import get
 def register_tool(mcp) -> None:
     @mcp.tool()
     async def frappe_doctypes(query: str = "", limit: int = 200) -> list[dict[str, Any]]:
-        """List available Frappe record types."""
+        """Discover exact Frappe DocType names before listing or searching.
+
+        Use this to map the user's wording to an available record type, then
+        pass the exact returned name to the other Frappe tools.
+        """
         filters: list[list[Any]] = [["DocType", "istable", "=", 0]]
         if query:
             filters.append(["DocType", "name", "like", f"%{query}%"])

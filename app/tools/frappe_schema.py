@@ -2,12 +2,14 @@
 
 from typing import Any
 
-from app.tools.frappe_common import get, path_part
+from app.tools.frappe_common import doctype_schema
 
 
 def register_tool(mcp) -> None:
     @mcp.tool()
     async def frappe_schema(doctype: str) -> dict[str, Any]:
-        """Return safe field metadata for a Frappe DocType."""
-        result = await get(f"/api/resource/DocType/{path_part(doctype)}")
-        return result if isinstance(result, dict) else {}
+        """Return field metadata for a Frappe DocType.
+
+        First call frappe_doctypes to confirm the exact DocType name.
+        """
+        return await doctype_schema(doctype)

@@ -7,7 +7,13 @@ from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
 from app.config import settings
-from app.tools.frappe_common import get, normalize_doctype, path_part
+from app.tools.frappe_common import (
+    FrappeRequestError,
+    doctype_schema,
+    get,
+    path_part,
+    schema_fields,
+)
 from app.ui.frappe_ui.resource import VIEW_URI
 
 
@@ -21,14 +27,24 @@ def register_tool(mcp) -> None:
         limit: int = 20,
         start: int = 0,
     ) -> ToolResult:
-        """List current records as the calling user's Frappe seat."""
-        doctype = normalize_doctype(doctype)
-        if fields is None and doctype == "CRM Deal":
-            fields = ["name", "organization", "annual_revenue", "status", "email", "currency", "mobile_no", "deal_owner", "custom_service_line", "expected_closure_date", "modified", "_assign"]
-        elif fields is None and doctype == "CRM Lead":
-            fields = ["name", "lead_name", "status", "source", "email_id", "phone", "organization", "lead_owner"]
+        """List records for an exact DocType name.
+
+        First call frappe_doctypes to map the user's wording to the exact
+        DocType name. If fields are omitted, this tool loads that DocType's
+        schema internally and derives its scalar fields and UI columns.
+        """
+        schema = await doctype_schema(doctype)
+        metadata = schema_fields(schema)
+        valid_names = {field["fieldname"] for field in metadata}
+        if fields is not None:
+            unknown_fields = [name for name in fields if name not in valid_names]
+            if unknown_fields:
+                raise ValueError(f"Unknown fields for {doctype}: {', '.join(unknown_fields)}")
+        selected_names = list(dict.fromkeys(fields if fields else valid_names))
+        if "name" not in selected_names:
+            selected_names.insert(0, "name")
         params: dict[str, Any] = {
-            "fields": json.dumps(fields or ["name"]),
+            "fields": json.dumps(selected_names),
             "limit_page_length": max(1, min(limit, settings.FRAPPE_MAX_LIMIT)),
             "limit_start": max(0, start),
         }
@@ -36,20 +52,24 @@ def register_tool(mcp) -> None:
             params["filters"] = json.dumps(filters)
         if order_by:
             params["order_by"] = order_by
-        result = await get(f"/api/resource/{path_part(doctype)}", params)
+        try:
+            result = await get(f"/api/resource/{path_part(doctype)}", params)
+        except FrappeRequestError as error:
+            if error.status_code != 417 or selected_names == ["name"]:
+                raise
+            params["fields"] = json.dumps(["name"])
+            selected_names = ["name"]
+            result = await get(f"/api/resource/{path_part(doctype)}", params)
         records = result if isinstance(result, list) else []
         if not records:
             return ToolResult(content=f"Found 0 {doctype} records.")
+        response_fields = set(records[0])
+        columns = [
+            {"label": field.get("label") or field["fieldname"], "key": field["fieldname"], "type": field.get("fieldtype", "Data"), "options": field.get("options")}
+            for field in metadata if field["fieldname"] in selected_names and field["fieldname"] in response_fields
+        ]
         return ToolResult(
             content=f"Found {len(records)} {doctype} records.",
-            structured_content={"doctype": doctype, "records": records, **({"columns": [
-                {"label": "Organization", "key": "organization", "type": "Link"},
-                {"label": "Annual Revenue", "key": "annual_revenue", "type": "Currency"},
-                {"label": "Status", "key": "status", "type": "Link"},
-                {"label": "Email", "key": "email", "type": "Data"},
-                {"label": "Mobile No.", "key": "mobile_no", "type": "Data"},
-                {"label": "Assigned To", "key": "_assign", "type": "Text"},
-                {"label": "Last Modified", "key": "modified", "type": "Datetime"},
-            ]} if doctype == "CRM Deal" else {})},
+            structured_content={"doctype": doctype, "records": records, "columns": columns},
             meta={"ui": {"resourceUri": VIEW_URI}},
         )

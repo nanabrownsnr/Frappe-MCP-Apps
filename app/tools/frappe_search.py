@@ -6,41 +6,68 @@ from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
 from app.config import settings
-from app.tools.frappe_common import get, normalize_doctype, path_part
+from app.tools.frappe_common import (
+    FrappeRequestError,
+    doctype_schema,
+    get,
+    path_part,
+    schema_fields,
+)
 from app.ui.frappe_ui.resource import VIEW_URI
 
 
 def register_tool(mcp) -> None:
     @mcp.tool(app=AppConfig(resource_uri=VIEW_URI, visibility=["model", "app"]))
     async def frappe_search(doctype: str, query: str = "", limit: int = 20) -> ToolResult:
-        """Search current Frappe records for the calling user's ERP seat."""
-        doctype = normalize_doctype(doctype)
+        """Search records for an exact DocType name.
+
+        First call frappe_doctypes to map the user's wording to the exact
+        DocType name. This tool then loads its schema internally.
+        Search uses the DocType's configured search fields, then its global
+        search fields, and finally the universal record name. Schema lookup
+        and result field selection happen internally.
+        """
+        schema = await doctype_schema(doctype)
+        metadata = schema_fields(schema)
+        fields_by_name = {field["fieldname"]: field for field in metadata}
+        configured = schema.get("search_fields", "")
+        configured_names = [name.strip() for name in configured.split(",") if name.strip()] if isinstance(configured, str) else []
+        searchable = [name for name in configured_names if name in fields_by_name]
+        if not searchable:
+            searchable = [name for name, field in fields_by_name.items() if field.get("in_global_search")]
+        if not searchable:
+            searchable = ["name"]
+        if "name" in fields_by_name and "name" not in searchable:
+            searchable.insert(0, "name")
+        selected_names = list(fields_by_name)
         params = {
+            "fields": json.dumps(selected_names),
             "limit_page_length": max(1, min(limit, settings.FRAPPE_MAX_LIMIT)),
             "order_by": "modified desc",
         }
         if query:
-            if doctype == "CRM Deal":
-                params["or_filters"] = json.dumps([
-                    ["name", "like", f"%{query}%"],
-                    ["title", "like", f"%{query}%"],
-                    ["organization", "like", f"%{query}%"],
-                ])
-            elif doctype == "CRM Lead":
-                params["or_filters"] = json.dumps([
-                    ["name", "like", f"%{query}%"],
-                    ["lead_name", "like", f"%{query}%"],
-                    ["organization", "like", f"%{query}%"],
-                    ["email_id", "like", f"%{query}%"],
-                ])
-            else:
-                params["filters"] = json.dumps([["name", "like", f"%{query}%"]])
-        result = await get(f"/api/resource/{path_part(doctype)}", params)
+            params["or_filters"] = json.dumps([[name, "like", f"%{query}%"] for name in searchable])
+        try:
+            result = await get(f"/api/resource/{path_part(doctype)}", params)
+        except FrappeRequestError as error:
+            if error.status_code != 417 or not query or searchable == ["name"]:
+                raise
+            params["fields"] = json.dumps(["name"])
+            params["or_filters"] = json.dumps([["name", "like", f"%{query}%"]])
+            searchable = ["name"]
+            result = await get(f"/api/resource/{path_part(doctype)}", params)
         records = result if isinstance(result, list) else []
         if not records:
             return ToolResult(content=f"Found 0 {doctype} records.")
         return ToolResult(
             content=f"Found {len(records)} {doctype} records.",
-            structured_content={"doctype": doctype, "records": records},
+            structured_content={
+                "doctype": doctype,
+                "records": records,
+                "columns": [
+                    {"label": field.get("label") or field["fieldname"], "key": field["fieldname"], "type": field.get("fieldtype", "Data"), "options": field.get("options")}
+                    for field in metadata if field["fieldname"] in records[0]
+                ],
+            },
             meta={"ui": {"resourceUri": VIEW_URI}},
         )

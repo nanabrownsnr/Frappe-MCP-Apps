@@ -9,7 +9,11 @@ from app.tools.frappe_common import get
 def register_tool(mcp) -> None:
     @mcp.tool()
     async def frappe_count(doctype: str, filters: list[Any] | None = None) -> int:
-        """Count permitted records without downloading them."""
+        """Count records for an exact DocType name.
+
+        First call frappe_doctypes to map the user's wording to the exact
+        DocType name, then pass that exact name here.
+        """
         params: dict[str, Any] = {"doctype": doctype}
         if filters:
             params["filters"] = json.dumps(filters)
