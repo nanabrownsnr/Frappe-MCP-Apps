@@ -27,11 +27,13 @@ def register_tool(mcp) -> None:
         limit: int = 20,
         start: int = 0,
     ) -> ToolResult:
-        """List records for an exact DocType name.
+        """List records from a Frappe DocType.
 
-        First call frappe_doctypes to map the user's wording to the exact
-        DocType name. If fields are omitted, this tool loads that DocType's
-        schema internally and derives its scalar fields and UI columns.
+        First call frappe_doctypes to identify the exact DocType name. Omit
+        `fields` for the default behavior: this tool loads the DocType schema
+        and selects its available scalar fields automatically. Only provide
+        `fields` when the user specifically asks for a limited field subset.
+        The tool returns matching UI column metadata with the records.
         """
         schema = await doctype_schema(doctype)
         metadata = schema_fields(schema)

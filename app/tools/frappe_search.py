@@ -19,13 +19,13 @@ from app.ui.frappe_ui.resource import VIEW_URI
 def register_tool(mcp) -> None:
     @mcp.tool(app=AppConfig(resource_uri=VIEW_URI, visibility=["model", "app"]))
     async def frappe_search(doctype: str, query: str = "", limit: int = 20) -> ToolResult:
-        """Search records for an exact DocType name.
+        """Search records in a Frappe DocType by a text query.
 
         First call frappe_doctypes to map the user's wording to the exact
-        DocType name. This tool then loads its schema internally.
-        Search uses the DocType's configured search fields, then its global
-        search fields, and finally the universal record name. Schema lookup
-        and result field selection happen internally.
+        DocType name. This tool loads the schema internally, searches the
+        DocType's configured search fields (then global-search fields, then
+        `name`), and selects display fields automatically. The agent does not
+        need to call frappe_schema or provide a fields list first.
         """
         schema = await doctype_schema(doctype)
         metadata = schema_fields(schema)
