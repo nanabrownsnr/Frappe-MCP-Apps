@@ -69,6 +69,51 @@ def chat_data(summary: str, data: Any, *, canvas: bool = False) -> str:
     return f"{summary}\nData:\n{rendered}{suffix}"
 
 
+def chat_record_index(
+    doctype: str,
+    records: list[dict[str, Any]],
+    schema: dict[str, Any],
+    metadata: list[dict[str, Any]],
+    *,
+    canvas: bool = False,
+) -> str:
+    """Return a compact count and get-ready record ID/label index for chat."""
+    ignored = {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
+    title_candidates = []
+    configured_title = schema.get("title_field")
+    if configured_title:
+        title_candidates.append(configured_title)
+    search_fields = schema.get("search_fields", "")
+    if isinstance(search_fields, str):
+        title_candidates.extend(
+            value.strip()
+            for value in search_fields.split(",")
+            if value.strip() not in ignored
+        )
+    title_candidates.extend(
+        field["fieldname"]
+        for field in metadata
+        if field["fieldname"] not in ignored
+        and field.get("fieldtype") in {"Data", "Link", "Select", "Email", "Phone"}
+    )
+    title_candidates = list(dict.fromkeys(title_candidates))
+
+    references = []
+    for record in records:
+        name = record.get("name")
+        if not name:
+            continue
+        label = next((record.get(field) for field in title_candidates if record.get(field)), None)
+        references.append(f"{name} ({label})" if label and str(label) != str(name) else str(name))
+
+    message = f"Found {len(records)} {doctype} records."
+    if references:
+        message += "\nRecord names (use these exact IDs with frappe_get): " + "; ".join(references)
+    if canvas:
+        message += "\nFull record details are displayed on the canvas."
+    return message
+
+
 async def get(path: str, params: dict[str, Any] | None = None) -> Any:
     base, auth = await connection()
     async with httpx.AsyncClient(timeout=settings.FRAPPE_TIMEOUT_SECONDS) as client:

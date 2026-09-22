@@ -7,7 +7,7 @@ from fastmcp.tools import ToolResult
 from app.config import settings
 from app.tools.frappe_common import (
     FrappeRequestError,
-    chat_data,
+    chat_record_index,
     doctype_schema,
     get,
     path_part,
@@ -59,7 +59,7 @@ def register_tool(mcp) -> None:
         if not records:
             return ToolResult(content=f"Found 0 {doctype} records.")
         return ToolResult(
-            content=chat_data(f"Found {len(records)} {doctype} records.", records),
+            content=chat_record_index(doctype, records, schema, metadata),
             structured_content={
                 "doctype": doctype,
                 "records": records,

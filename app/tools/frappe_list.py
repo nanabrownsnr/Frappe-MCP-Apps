@@ -9,7 +9,7 @@ from fastmcp.tools import ToolResult
 from app.config import settings
 from app.tools.frappe_common import (
     FrappeRequestError,
-    chat_data,
+    chat_record_index,
     doctype_schema,
     get,
     path_part,
@@ -74,7 +74,7 @@ def register_tool(mcp) -> None:
             for field in metadata if field["fieldname"] in selected_names and field["fieldname"] in response_fields
         ]
         return ToolResult(
-            content=chat_data(f"Found {len(records)} {doctype} records.", records, canvas=True),
+            content=chat_record_index(doctype, records, schema, metadata, canvas=True),
             structured_content={"doctype": doctype, "records": records, "columns": columns},
             meta={"ui": {"resourceUri": VIEW_URI}},
         )

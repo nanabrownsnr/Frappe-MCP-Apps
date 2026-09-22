@@ -53,11 +53,14 @@ mcp = FastMCP(
         "across available modules such as ERPNext, CRM, HRMS, and custom apps. Installed apps "
         "vary by site. When the user asks about Frappe/ERP data, do not claim you lack access: "
         "use frappe_doctypes to identify the exact DocType when needed, then use that exact name. "
+        "If multiple discovered DocTypes could reasonably match the request, ask the user which "
+        "one they mean instead of guessing. "
         "For lists, omit fields unless the user asks for a subset; frappe_list discovers fields "
-        "from the DocType schema internally. Its result contains the actual records in chat text "
-        "and on the canvas, so do not repeat the same list call only to obtain fields. For a "
-        "pipeline or record view, use frappe_list or frappe_get and tell the user the data is "
-        "displayed on the canvas while summarizing the records from the chat result."
+        "from the DocType schema internally. Its chat result contains the record count and exact "
+        "record IDs with labels; full data is sent to the canvas. Do not repeat a list call just "
+        "to obtain fields. If the user asks to open a listed record, call frappe_get with the "
+        "exact DocType and ID from the result. For a pipeline or record view, tell the user the "
+        "full data is displayed on the canvas."
     ),
     auth=get_auth_provider(),
     lifespan=app_lifespan,
