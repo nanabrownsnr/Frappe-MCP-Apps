@@ -2,7 +2,6 @@
 
 import json
 
-from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
 from app.config import settings
@@ -13,11 +12,10 @@ from app.tools.frappe_common import (
     path_part,
     schema_fields,
 )
-from app.ui.frappe_ui.resource import VIEW_URI
 
 
 def register_tool(mcp) -> None:
-    @mcp.tool(app=AppConfig(resource_uri=VIEW_URI, visibility=["model", "app"]))
+    @mcp.tool()
     async def frappe_search(doctype: str, query: str = "", limit: int = 20) -> ToolResult:
         """Search records in a Frappe DocType by a text query.
 
@@ -69,5 +67,4 @@ def register_tool(mcp) -> None:
                     for field in metadata if field["fieldname"] in records[0]
                 ],
             },
-            meta={"ui": {"resourceUri": VIEW_URI}},
         )

@@ -3,11 +3,9 @@
 import asyncio
 from typing import Any
 
-from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
 from app.tools.frappe_common import get, path_part
-from app.ui.frappe_ui.resource import VIEW_URI
 
 
 async def _slice(doctype: str, project: str) -> Any:
@@ -18,7 +16,7 @@ async def _slice(doctype: str, project: str) -> Any:
 
 
 def register_tool(mcp) -> None:
-    @mcp.tool(app=AppConfig(resource_uri=VIEW_URI, visibility=["model", "app"]))
+    @mcp.tool()
     async def frappe_job_overview(project: str) -> ToolResult:
         """Return a project and its related invoices and timesheets."""
         values = await asyncio.gather(
@@ -38,5 +36,4 @@ def register_tool(mcp) -> None:
         return ToolResult(
             content=f"Loaded project overview for {project}.",
             structured_content={"doctype": "Project", "record": overview},
-            meta={"ui": {"resourceUri": VIEW_URI}},
         )
