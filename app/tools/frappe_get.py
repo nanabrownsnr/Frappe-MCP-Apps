@@ -3,7 +3,7 @@
 from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
-from app.tools.frappe_common import get, path_part
+from app.tools.frappe_common import chat_data, get, path_part
 from app.ui.frappe_ui.resource import VIEW_URI
 
 
@@ -20,7 +20,7 @@ def register_tool(mcp) -> None:
         if not record:
             return ToolResult(content=f"No {doctype} record found for {name}.")
         return ToolResult(
-            content=f"Loaded {doctype} {name}.",
+            content=chat_data(f"Loaded {doctype} {name}.", record, canvas=True),
             structured_content={"doctype": doctype, "record": record},
             meta={"ui": {"resourceUri": VIEW_URI}},
         )

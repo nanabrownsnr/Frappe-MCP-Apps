@@ -9,6 +9,7 @@ from fastmcp.tools import ToolResult
 from app.config import settings
 from app.tools.frappe_common import (
     FrappeRequestError,
+    chat_data,
     doctype_schema,
     get,
     path_part,
@@ -33,7 +34,9 @@ def register_tool(mcp) -> None:
         `fields` for the default behavior: this tool loads the DocType schema
         and selects its available scalar fields automatically. Only provide
         `fields` when the user specifically asks for a limited field subset.
-        The tool returns matching UI column metadata with the records.
+        The tool returns the records in the chat result and matching UI
+        column metadata for the canvas. Do not call it again just to fetch
+        fields when this call already returned records.
         """
         schema = await doctype_schema(doctype)
         metadata = schema_fields(schema)
@@ -71,7 +74,7 @@ def register_tool(mcp) -> None:
             for field in metadata if field["fieldname"] in selected_names and field["fieldname"] in response_fields
         ]
         return ToolResult(
-            content=f"Found {len(records)} {doctype} records.",
+            content=chat_data(f"Found {len(records)} {doctype} records.", records, canvas=True),
             structured_content={"doctype": doctype, "records": records, "columns": columns},
             meta={"ui": {"resourceUri": VIEW_URI}},
         )

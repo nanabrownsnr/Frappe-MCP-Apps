@@ -47,6 +47,18 @@ async def app_lifespan(server):
 
 mcp = FastMCP(
     settings.APP_TITLE,
+    instructions=(
+        "You are connected to the user's Frappe ERP site through their saved API credentials. "
+        "You can query any DocType that is installed and readable by that Frappe account, "
+        "across available modules such as ERPNext, CRM, HRMS, and custom apps. Installed apps "
+        "vary by site. When the user asks about Frappe/ERP data, do not claim you lack access: "
+        "use frappe_doctypes to identify the exact DocType when needed, then use that exact name. "
+        "For lists, omit fields unless the user asks for a subset; frappe_list discovers fields "
+        "from the DocType schema internally. Its result contains the actual records in chat text "
+        "and on the canvas, so do not repeat the same list call only to obtain fields. For a "
+        "pipeline or record view, use frappe_list or frappe_get and tell the user the data is "
+        "displayed on the canvas while summarizing the records from the chat result."
+    ),
     auth=get_auth_provider(),
     lifespan=app_lifespan,
 )

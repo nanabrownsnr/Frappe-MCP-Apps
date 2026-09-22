@@ -1,5 +1,6 @@
 """Shared Frappe transport and response-safety helpers."""
 
+import json
 from typing import Any
 from urllib.parse import quote
 
@@ -59,6 +60,13 @@ def redact(value: Any) -> Any:
         return value
     blocked = ("password", "secret", "token", "salary", "bank", "sin", "passport")
     return {k: redact(v) for k, v in value.items() if not any(x in k.lower() for x in blocked)}
+
+
+def chat_data(summary: str, data: Any, *, canvas: bool = False) -> str:
+    """Include returned records in model-visible text as well as UI payloads."""
+    rendered = json.dumps(data, ensure_ascii=False, indent=2, default=str)
+    suffix = "\nThese records are also displayed on the canvas." if canvas else ""
+    return f"{summary}\nData:\n{rendered}{suffix}"
 
 
 async def get(path: str, params: dict[str, Any] | None = None) -> Any:

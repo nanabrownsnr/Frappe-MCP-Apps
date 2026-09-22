@@ -5,7 +5,7 @@ from typing import Any
 
 from fastmcp.tools import ToolResult
 
-from app.tools.frappe_common import get, path_part
+from app.tools.frappe_common import chat_data, get, path_part
 
 
 async def _slice(doctype: str, project: str) -> Any:
@@ -34,6 +34,6 @@ def register_tool(mcp) -> None:
         if not isinstance(overview["project"], dict) or not overview["project"]:
             return ToolResult(content=f"No project record found for {project}.")
         return ToolResult(
-            content=f"Loaded project overview for {project}.",
+            content=chat_data(f"Loaded project overview for {project}.", overview),
             structured_content={"doctype": "Project", "record": overview},
         )
