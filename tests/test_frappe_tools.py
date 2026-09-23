@@ -17,6 +17,7 @@ from app.tools import (
     frappe_list,
     frappe_schema,
     frappe_search,
+    frappe_update,
 )
 
 SCHEMA = {
@@ -55,6 +56,7 @@ def server():
         frappe_get,
         frappe_count,
         frappe_job_overview,
+        frappe_update,
     ):
         module.register_tool(mcp)
     return mcp
@@ -319,6 +321,114 @@ async def test_get_success_empty_result_and_bad_inputs(server, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_update_success_sends_partial_payload_and_returns_record(server, monkeypatch):
+    calls = []
+
+    async def schema(doctype):
+        assert doctype == "CRM Deal"
+        return SCHEMA
+
+    async def upstream(path, values):
+        calls.append((path, values))
+        return {**RECORD, **values}
+
+    monkeypatch.setattr(frappe_update, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_update, "put", upstream)
+    result = await invoke(
+        server,
+        "frappe_update",
+        {
+            "doctype": "CRM Deal",
+            "name": "CRM-DEAL-0001",
+            "values": {"custom_service_line": "Product", "status": "Won"},
+        },
+    )
+
+    assert calls == [
+        (
+            "/api/resource/CRM%20Deal/CRM-DEAL-0001",
+            {"custom_service_line": "Product", "status": "Won"},
+        )
+    ]
+    assert result.structured_content["name"] == "CRM-DEAL-0001"
+    assert result.structured_content["updated_fields"] == ["custom_service_line", "status"]
+    assert result.structured_content["record"]["status"] == "Won"
+    assert "Fields changed: custom_service_line, status" in text_of(result)
+    assert '"organization": "Acme"' in text_of(result)
+    assert '"status": "Won"' in text_of(result)
+    assert not result.meta or "ui" not in result.meta
+
+
+@pytest.mark.asyncio
+async def test_update_rejects_bad_fields_and_empty_payload_before_put(server, monkeypatch):
+    schema_data = {
+        **SCHEMA,
+        "fields": SCHEMA["fields"]
+        + [
+            {"fieldname": "locked", "label": "Locked", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "computed", "label": "Computed", "fieldtype": "Data", "is_virtual": 1},
+        ],
+    }
+
+    async def schema(_doctype):
+        return schema_data
+
+    async def put_should_not_run(*args, **kwargs):
+        pytest.fail("The update request must not run after local input validation fails")
+
+    monkeypatch.setattr(frappe_update, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_update, "put", put_should_not_run)
+    arguments = {"doctype": "CRM Deal", "name": "CRM-DEAL-0001"}
+
+    with pytest.raises(ValueError, match="values.*non-empty"):
+        await invoke(server, "frappe_update", {**arguments, "values": {}})
+    with pytest.raises(ValueError, match="locked"):
+        await invoke(server, "frappe_update", {**arguments, "values": {"locked": "x"}})
+    with pytest.raises(ValueError, match="computed"):
+        await invoke(server, "frappe_update", {**arguments, "values": {"computed": "x"}})
+    with pytest.raises(ValueError, match="unknown, hidden, or unsupported.*internal_note"):
+        await invoke(server, "frappe_update", {**arguments, "values": {"internal_note": "x"}})
+    with pytest.raises(ValueError, match="unknown, hidden, or unsupported.*name"):
+        await invoke(server, "frappe_update", {**arguments, "values": {"name": "NEW-NAME"}})
+    with pytest.raises(ValueError, match="doctype"):
+        await invoke(server, "frappe_update", {**arguments, "doctype": " ", "values": {"status": "Won"}})
+    with pytest.raises(ValueError, match="name"):
+        await invoke(server, "frappe_update", {**arguments, "name": " ", "values": {"status": "Won"}})
+
+
+@pytest.mark.asyncio
+async def test_update_passes_explicit_null_and_surfaces_frappe_validation(server, monkeypatch):
+    async def schema(_doctype):
+        return SCHEMA
+
+    calls = []
+
+    async def capture_null(path, values):
+        calls.append(values)
+        return {"name": "CRM-DEAL-0001"}
+
+    monkeypatch.setattr(frappe_update, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_update, "put", capture_null)
+    await invoke(
+        server,
+        "frappe_update",
+        {"doctype": "CRM Deal", "name": "CRM-DEAL-0001", "values": {"status": None}},
+    )
+    assert calls == [{"status": None}]
+
+    async def rejected(path, values):
+        raise frappe_common.FrappeRequestError(417, "Invalid status option")
+
+    monkeypatch.setattr(frappe_update, "put", rejected)
+    with pytest.raises(frappe_common.FrappeRequestError, match="Invalid status option"):
+        await invoke(
+            server,
+            "frappe_update",
+            {"doctype": "CRM Deal", "name": "CRM-DEAL-0001", "values": {"status": "No Such Status"}},
+        )
+
+
+@pytest.mark.asyncio
 async def test_count_success_filters_bad_response_and_upstream_error(server, monkeypatch):
     calls = []
 
@@ -393,6 +503,8 @@ async def test_job_overview_success_missing_project_and_partial_failure(server, 
 
 @pytest.mark.asyncio
 async def test_shared_get_success_redaction_and_upstream_error_mapping(monkeypatch):
+    requests = []
+
     class Response:
         status_code = 200
         text = ""
@@ -417,64 +529,76 @@ async def test_shared_get_success_redaction_and_upstream_error_mapping(monkeypat
         async def __aexit__(self, *args):
             return None
 
-        async def get(self, *args, **kwargs):
+        async def request(self, method, url, **kwargs):
+            requests.append((method, url, kwargs))
             return Response()
 
     monkeypatch.setattr(frappe_common, "connection", lambda: asyncio.sleep(0, result=("https://frappe.invalid", "token x:y")))
     monkeypatch.setattr(frappe_common.httpx, "AsyncClient", Client)
     assert await frappe_common.get("/api/resource/Test") == {"name": "x", "nested": {"ok": 1}}
+    updated = await frappe_common.put(
+        "/api/resource/CRM%20Deal/CRM-DEAL-0001",
+        {"status": "Won"},
+    )
+    assert updated == {"name": "x", "nested": {"ok": 1}}
+    method, url, request_kwargs = requests[-1]
+    assert method == "PUT"
+    assert url == "https://frappe.invalid/api/resource/CRM%20Deal/CRM-DEAL-0001"
+    assert request_kwargs["json"] == {"status": "Won"}
+    assert request_kwargs["headers"]["Content-Type"] == "application/json"
+    assert request_kwargs["headers"]["Authorization"] == "token x:y"
 
     class Failure(Response):
         def __init__(self, status, body="upstream failed"):
             self.status_code = status
             self.text = body
 
-    for status, expected in ((401, "authentication failed"), (403, "lack read permission")):
+    for status, expected in ((401, "authentication failed"), (403, "read or write permission")):
         async def denied(*args, _status=status, **kwargs):
             return Failure(_status)
 
-        monkeypatch.setattr(Client, "get", denied)
+        monkeypatch.setattr(Client, "request", denied)
         with pytest.raises(PermissionError, match=expected):
             await frappe_common.get("/api/resource/Test")
 
     async def rejected(*args, **kwargs):
         return Failure(417)
 
-    monkeypatch.setattr(Client, "get", rejected)
+    monkeypatch.setattr(Client, "request", rejected)
     with pytest.raises(frappe_common.FrappeRequestError, match="417"):
         await frappe_common.get("/api/resource/Test")
 
     async def gateway_failure(*args, **kwargs):
         return Failure(502)
 
-    monkeypatch.setattr(Client, "get", gateway_failure)
+    monkeypatch.setattr(Client, "request", gateway_failure)
     with pytest.raises(frappe_common.FrappeRequestError, match=r"server error \(502\)"):
         await frappe_common.get("/api/resource/Test")
 
     async def not_found(*args, **kwargs):
         return Failure(404, '{"message":"CRM Deal does not exist"}')
 
-    monkeypatch.setattr(Client, "get", not_found)
+    monkeypatch.setattr(Client, "request", not_found)
     with pytest.raises(frappe_common.FrappeRequestError, match="exact DocType and record name"):
         await frappe_common.get("/api/resource/CRM%20Deal/missing")
 
     async def limited(*args, **kwargs):
         return Failure(429)
 
-    monkeypatch.setattr(Client, "get", limited)
+    monkeypatch.setattr(Client, "request", limited)
     with pytest.raises(frappe_common.FrappeRequestError, match="rate-limited"):
         await frappe_common.get("/api/resource/Test")
 
     async def timed_out(*args, **kwargs):
         raise httpx.ReadTimeout("late")
 
-    monkeypatch.setattr(Client, "get", timed_out)
+    monkeypatch.setattr(Client, "request", timed_out)
     with pytest.raises(frappe_common.FrappeRequestError, match="timed out"):
         await frappe_common.get("/api/resource/Test")
 
     async def offline(*args, **kwargs):
         raise httpx.ConnectError("offline")
 
-    monkeypatch.setattr(Client, "get", offline)
+    monkeypatch.setattr(Client, "request", offline)
     with pytest.raises(frappe_common.FrappeRequestError, match="Could not connect"):
         await frappe_common.get("/api/resource/Test")

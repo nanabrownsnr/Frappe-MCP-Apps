@@ -26,6 +26,7 @@ from app.tools.frappe_job_overview import register_tool as register_frappe_job_o
 from app.tools.frappe_list import register_tool as register_frappe_list
 from app.tools.frappe_schema import register_tool as register_frappe_schema
 from app.tools.frappe_search import register_tool as register_frappe_search
+from app.tools.frappe_update import register_tool as register_frappe_update
 from app.twynity import register_routes
 from app.ui.frappe_ui.resource import register_resource
 from app.usage import save_usage_report
@@ -59,7 +60,10 @@ mcp = FastMCP(
         "from the DocType schema internally. Its chat result contains the record count and exact "
         "record IDs with labels; full data is sent to the canvas. Do not repeat a list call just "
         "to obtain fields. If the user asks to open a listed record, call frappe_get with the "
-        "exact DocType and ID from the result. For a pipeline or record view, tell the user the "
+        "exact DocType and ID from the result. When asked to change a record, call "
+        "frappe_update with only the explicitly requested fields and values; use null only when "
+        "the user explicitly asks to clear a field. Do not claim a change succeeded unless the "
+        "tool confirms it. For a pipeline or record view, tell the user the "
         "full data is displayed on the canvas. If a tool reports invalid input, use the named "
         "argument or filter index in the error to correct the call and retry when the correction "
         "is clear; ask the user only when the missing or ambiguous value cannot be inferred. "
@@ -78,6 +82,7 @@ register_frappe_count(mcp)
 register_frappe_doctypes(mcp)
 register_frappe_schema(mcp)
 register_frappe_job_overview(mcp)
+register_frappe_update(mcp)
 
 
 class UsageTrackingMiddleware(MCPMiddleware):

@@ -191,11 +191,26 @@ def chat_record_index(
     return message
 
 
-async def get(path: str, params: dict[str, Any] | None = None) -> Any:
+async def _request(
+    method: str,
+    path: str,
+    *,
+    params: dict[str, Any] | None = None,
+    json_body: dict[str, Any] | None = None,
+) -> Any:
     base, auth = await connection()
     try:
         async with httpx.AsyncClient(timeout=settings.FRAPPE_TIMEOUT_SECONDS) as client:
-            response = await client.get(f"{base}{path}", params=params, headers={"Authorization": auth})
+            headers = {"Authorization": auth, "Accept": "application/json"}
+            if json_body is not None:
+                headers["Content-Type"] = "application/json"
+            response = await client.request(
+                method,
+                f"{base}{path}",
+                params=params,
+                json=json_body,
+                headers=headers,
+            )
     except httpx.TimeoutException as error:
         raise FrappeRequestError(
             None,
@@ -223,8 +238,8 @@ async def get(path: str, params: dict[str, Any] | None = None) -> Any:
         )
     if status == 403:
         raise PermissionError(
-            "Frappe denied this request (403). The API-key user may lack read permission "
-            "for this DocType or one of its requested fields; check Frappe roles and permissions."
+            "Frappe denied this request (403). The API-key user may lack the required read or "
+            "write permission for this DocType or one of its fields; check Frappe roles and permissions."
         )
     if status == 404:
         raise FrappeRequestError(
@@ -235,8 +250,8 @@ async def get(path: str, params: dict[str, Any] | None = None) -> Any:
     if status == 417:
         raise FrappeRequestError(
             status,
-            f"Frappe rejected the request (417). Check the DocType, field names, and filter "
-            f"values; if this is a permissions issue, check the API-key user's access. {detail}",
+            f"Frappe rejected the request (417). Check the DocType, field names, supplied field "
+            f"values, and filters; if this is a permissions issue, check the API-key user's access. {detail}",
         )
     if status == 429:
         raise FrappeRequestError(
@@ -265,3 +280,12 @@ async def get(path: str, params: dict[str, Any] | None = None) -> Any:
             "Retry, and check the site/API response if it persists.",
         ) from error
     return redact(body.get("data", body.get("message", body)))
+
+
+async def get(path: str, params: dict[str, Any] | None = None) -> Any:
+    return await _request("GET", path, params=params)
+
+
+async def put(path: str, json_body: dict[str, Any]) -> Any:
+    """Update a Frappe document using its normal REST save/validation path."""
+    return await _request("PUT", path, json_body=json_body)
