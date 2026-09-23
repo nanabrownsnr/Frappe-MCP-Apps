@@ -3,7 +3,7 @@
 from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
-from app.tools.frappe_common import chat_data, get, path_part
+from app.tools.frappe_common import chat_data, get, path_part, validate_doctype
 from app.ui.frappe_ui.resource import VIEW_URI
 
 
@@ -15,8 +15,13 @@ def register_tool(mcp) -> None:
         First call frappe_doctypes to confirm the exact DocType, then use
         frappe_search to find the record name if it is not already known.
         """
+        doctype = validate_doctype(doctype)
+        if not name.strip():
+            raise ValueError("Input 'name' must be the exact, non-empty Frappe record name.")
         result = await get(f"/api/resource/{path_part(doctype)}/{path_part(name)}")
-        record = result if isinstance(result, dict) else {}
+        if not isinstance(result, dict):
+            raise ValueError(f"Frappe returned an invalid record response for {doctype} {name}.")
+        record = result
         if not record:
             return ToolResult(content=f"No {doctype} record found for {name}.")
         return ToolResult(

@@ -27,4 +27,6 @@ def register_tool(mcp) -> None:
                 "limit_page_length": max(1, min(limit, 500)),
             },
         )
-        return result if isinstance(result, list) else []
+        if not isinstance(result, list) or any(not isinstance(item, dict) for item in result):
+            raise ValueError("Frappe returned an invalid DocType list.")
+        return result

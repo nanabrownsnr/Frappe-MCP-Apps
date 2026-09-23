@@ -1,13 +1,13 @@
-"""Register Twynity's well-known manifest and health HTTP routes.
+"""Register Twynity's manifest, health, and external-connection routes.
 
 FastMCP's JWT verifier protects its MCP transport, not custom routes by
-default. These two routes are intentionally public; add explicit authorization
-inside any new custom route that should be protected.
+default. Manifest, schema, health, and configuration preflight routes are
+public; routes that read or save user connection data authenticate explicitly.
 """
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, ValidationError
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from app.auth import get_current_user
 from app.config import settings
@@ -17,8 +17,8 @@ from app.frappe_connection import get_connection, save_connection
 def register_routes(mcp):
     class FrappeConnection(BaseModel):
         frappe_base_url: HttpUrl
-        api_key: str
-        api_secret: str
+        api_key: str = Field(min_length=1)
+        api_secret: str = Field(min_length=1)
 
     @mcp.custom_route("/api/v1/schema", methods=["GET"])
     async def configuration_schema(request: Request) -> JSONResponse:
@@ -38,15 +38,32 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/configuration", methods=["POST", "OPTIONS"])
     async def configure_frappe(request: Request) -> JSONResponse:
         if request.method == "OPTIONS":
-            return JSONResponse({}, status_code=204)
-        user = get_current_user()
-        payload = FrappeConnection.model_validate(await request.json())
+            return Response(status_code=204)
+        try:
+            user = get_current_user()
+        except ValueError:
+            return JSONResponse({"detail": "Authentication required."}, status_code=401)
+        try:
+            body = await request.json()
+        except ValueError:
+            return JSONResponse({"detail": "Request body must contain valid JSON."}, status_code=400)
+        try:
+            payload = FrappeConnection.model_validate(body)
+        except ValidationError as error:
+            details = [
+                {"field": ".".join(str(part) for part in item["loc"]), "message": item["msg"]}
+                for item in error.errors(include_input=False)
+            ]
+            return JSONResponse({"detail": details}, status_code=422)
         await save_connection(user["id"], str(payload.frappe_base_url), payload.api_key, payload.api_secret)
         return JSONResponse({"configured": True})
 
     @mcp.custom_route("/api/v1/external-connection/me", methods=["GET"])
     async def external_connection_me(request: Request) -> JSONResponse:
-        user = get_current_user()
+        try:
+            user = get_current_user()
+        except ValueError:
+            return JSONResponse({"detail": "Authentication required."}, status_code=401)
         return JSONResponse({"connected": await get_connection(user["id"]) is not None})
 
     @mcp.custom_route("/api/v1/.well-known/mcp.json", methods=["GET"])

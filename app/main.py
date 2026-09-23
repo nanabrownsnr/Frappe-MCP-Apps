@@ -60,7 +60,11 @@ mcp = FastMCP(
         "record IDs with labels; full data is sent to the canvas. Do not repeat a list call just "
         "to obtain fields. If the user asks to open a listed record, call frappe_get with the "
         "exact DocType and ID from the result. For a pipeline or record view, tell the user the "
-        "full data is displayed on the canvas."
+        "full data is displayed on the canvas. If a tool reports invalid input, use the named "
+        "argument or filter index in the error to correct the call and retry when the correction "
+        "is clear; ask the user only when the missing or ambiguous value cannot be inferred. "
+        "For connection, permission, timeout, or server errors, follow the recovery hint in the "
+        "tool error and do not claim the query returned no records."
     ),
     auth=get_auth_provider(),
     lifespan=app_lifespan,

@@ -22,7 +22,7 @@ async def doctype_schema(doctype: str) -> dict[str, Any]:
         {"doctype": doctype},
     )
     if not isinstance(result, dict):
-        return {}
+        raise ValueError(f"Frappe returned invalid metadata for DocType {doctype!r}.")
 
     # getdoctype adds the metadata bundle to the top-level ``docs`` response.
     # Also accept a ``message`` wrapper for Frappe versions/proxies that wrap
@@ -61,9 +61,66 @@ def schema_fields(schema: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 class FrappeRequestError(RuntimeError):
-    def __init__(self, status_code: int, detail: str):
+    def __init__(self, status_code: int | None, detail: str):
         self.status_code = status_code
         super().__init__(detail)
+
+
+def validate_doctype(doctype: str) -> str:
+    """Reject a missing DocType locally, with a useful argument name."""
+    if not doctype.strip():
+        raise ValueError("Input 'doctype' must be a non-empty exact Frappe DocType name.")
+    return doctype.strip()
+
+
+def validate_filters(filters: list[Any] | None) -> None:
+    """Validate Frappe's 3- or 4-part filter format before making a request."""
+    if filters is None:
+        return
+    if not isinstance(filters, list):
+        raise ValueError("Input 'filters' must be a list of 3- or 4-item filter lists.")
+    for index, item in enumerate(filters):
+        if not isinstance(item, list) or len(item) not in (3, 4):
+            raise ValueError(
+                f"Input 'filters[{index}]' must be [field, operator, value] or "
+                "[doctype, field, operator, value]."
+            )
+        if any(not isinstance(part, str) or not part.strip() for part in item[:-1]):
+            raise ValueError(
+                f"Input 'filters[{index}]' has an invalid field, DocType, or operator; "
+                "these entries must be non-empty strings."
+            )
+
+
+def _response_detail(response: httpx.Response) -> str:
+    """Extract a short, useful Frappe error without returning a traceback."""
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    if isinstance(body, dict):
+        for key in ("message", "_error_message", "exc_type"):
+            value = body.get(key)
+            if isinstance(value, str) and value.strip():
+                return " ".join(value.split())[:400]
+        messages = body.get("_server_messages")
+        if isinstance(messages, str):
+            try:
+                messages = json.loads(messages)
+            except ValueError:
+                pass
+        if isinstance(messages, list):
+            for message in messages:
+                if isinstance(message, str):
+                    try:
+                        parsed = json.loads(message)
+                    except ValueError:
+                        parsed = message
+                    if isinstance(parsed, dict):
+                        parsed = parsed.get("message") or parsed.get("title")
+                    if isinstance(parsed, str) and parsed.strip():
+                        return " ".join(parsed.split())[:400]
+    return " ".join(response.text.split())[:400]
 
 
 async def connection() -> tuple[str, str]:
@@ -136,13 +193,75 @@ def chat_record_index(
 
 async def get(path: str, params: dict[str, Any] | None = None) -> Any:
     base, auth = await connection()
-    async with httpx.AsyncClient(timeout=settings.FRAPPE_TIMEOUT_SECONDS) as client:
-        response = await client.get(f"{base}{path}", params=params, headers={"Authorization": auth})
-    if response.status_code in (401, 403):
-        raise PermissionError("Frappe denied this read.")
-    if response.status_code == 417:
-        detail = response.text[:500].replace("\n", " ")
-        raise FrappeRequestError(417, f"Frappe rejected the request (417). Check the DocType, fields, or filters. {detail}")
-    response.raise_for_status()
-    body = response.json()
+    try:
+        async with httpx.AsyncClient(timeout=settings.FRAPPE_TIMEOUT_SECONDS) as client:
+            response = await client.get(f"{base}{path}", params=params, headers={"Authorization": auth})
+    except httpx.TimeoutException as error:
+        raise FrappeRequestError(
+            None,
+            f"Frappe request timed out after {settings.FRAPPE_TIMEOUT_SECONDS:g}s. "
+            "Retry, or verify the Frappe site URL if the timeout persists.",
+        ) from error
+    except httpx.ConnectError as error:
+        raise FrappeRequestError(
+            None,
+            "Could not connect to the configured Frappe site. Verify the saved base URL "
+            "and that the site is reachable, then retry.",
+        ) from error
+    except httpx.RequestError as error:
+        raise FrappeRequestError(
+            None,
+            f"Frappe request failed ({type(error).__name__}). Verify the site connection and retry.",
+        ) from error
+
+    status = response.status_code
+    detail = _response_detail(response)
+    if status == 401:
+        raise PermissionError(
+            "Frappe authentication failed (401). Check the saved API key and API secret, "
+            "then retry."
+        )
+    if status == 403:
+        raise PermissionError(
+            "Frappe denied this request (403). The API-key user may lack read permission "
+            "for this DocType or one of its requested fields; check Frappe roles and permissions."
+        )
+    if status == 404:
+        raise FrappeRequestError(
+            status,
+            f"Frappe could not find the requested DocType, record, or method (404). "
+            f"Check the exact DocType and record name. {detail}",
+        )
+    if status == 417:
+        raise FrappeRequestError(
+            status,
+            f"Frappe rejected the request (417). Check the DocType, field names, and filter "
+            f"values; if this is a permissions issue, check the API-key user's access. {detail}",
+        )
+    if status == 429:
+        raise FrappeRequestError(
+            status,
+            "Frappe rate-limited this request (429). Wait briefly, then retry with a smaller "
+            "limit or fewer requests.",
+        )
+    if status >= 500:
+        raise FrappeRequestError(
+            status,
+            f"Frappe returned a server error ({status}). Retry shortly; if it persists, "
+            f"check Frappe server health. {detail}",
+        )
+    if status >= 400:
+        raise FrappeRequestError(
+            status,
+            f"Frappe rejected the request ({status}). Check the tool inputs, DocType, and "
+            f"permissions. {detail}",
+        )
+    try:
+        body = response.json()
+    except ValueError as error:
+        raise FrappeRequestError(
+            status,
+            "Frappe returned a successful status but the response was not valid JSON. "
+            "Retry, and check the site/API response if it persists.",
+        ) from error
     return redact(body.get("data", body.get("message", body)))

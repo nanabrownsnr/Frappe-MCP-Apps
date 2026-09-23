@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from app.tools.frappe_common import doctype_schema
+from app.tools.frappe_common import doctype_schema, validate_doctype
 
 
 def register_tool(mcp) -> None:
@@ -12,4 +12,4 @@ def register_tool(mcp) -> None:
 
         First call frappe_doctypes to confirm the exact DocType name.
         """
-        return await doctype_schema(doctype)
+        return await doctype_schema(validate_doctype(doctype))

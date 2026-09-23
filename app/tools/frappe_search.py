@@ -12,6 +12,7 @@ from app.tools.frappe_common import (
     get,
     path_part,
     schema_fields,
+    validate_doctype,
 )
 
 
@@ -26,6 +27,7 @@ def register_tool(mcp) -> None:
         `name`), and selects display fields automatically. The agent does not
         need to call frappe_schema or provide a fields list first.
         """
+        doctype = validate_doctype(doctype)
         schema = await doctype_schema(doctype)
         metadata = schema_fields(schema)
         fields_by_name = {field["fieldname"]: field for field in metadata}
@@ -55,7 +57,9 @@ def register_tool(mcp) -> None:
             params["or_filters"] = json.dumps([["name", "like", f"%{query}%"]])
             searchable = ["name"]
             result = await get(f"/api/resource/{path_part(doctype)}", params)
-        records = result if isinstance(result, list) else []
+        if not isinstance(result, list) or any(not isinstance(record, dict) for record in result):
+            raise ValueError(f"Frappe returned an invalid search result for {doctype}.")
+        records = result
         if not records:
             return ToolResult(content=f"Found 0 {doctype} records.")
         return ToolResult(

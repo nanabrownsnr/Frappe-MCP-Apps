@@ -14,6 +14,8 @@ from app.tools.frappe_common import (
     get,
     path_part,
     schema_fields,
+    validate_doctype,
+    validate_filters,
 )
 from app.ui.frappe_ui.resource import VIEW_URI
 
@@ -38,6 +40,8 @@ def register_tool(mcp) -> None:
         column metadata for the canvas. Do not call it again just to fetch
         fields when this call already returned records.
         """
+        doctype = validate_doctype(doctype)
+        validate_filters(filters)
         schema = await doctype_schema(doctype)
         metadata = schema_fields(schema)
         valid_names = {field["fieldname"] for field in metadata}
@@ -65,7 +69,9 @@ def register_tool(mcp) -> None:
             params["fields"] = json.dumps(["name"])
             selected_names = ["name"]
             result = await get(f"/api/resource/{path_part(doctype)}", params)
-        records = result if isinstance(result, list) else []
+        if not isinstance(result, list) or any(not isinstance(record, dict) for record in result):
+            raise ValueError(f"Frappe returned an invalid record list for {doctype}.")
+        records = result
         if not records:
             return ToolResult(content=f"Found 0 {doctype} records.")
         response_fields = set(records[0])
