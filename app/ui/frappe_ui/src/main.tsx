@@ -3,11 +3,16 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import HelloApp from "./App.jsx";
+import App from "./App.tsx";
 import "./style.css";
 
-createRoot(document.querySelector("#root")).render(
+const root = document.querySelector("#root");
+if (!root) {
+    throw new Error("Missing #root element");
+}
+
+createRoot(root).render(
     <StrictMode>
-        <HelloApp />
+        <App />
     </StrictMode>,
 );

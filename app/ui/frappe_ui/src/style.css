@@ -1,34 +1,31 @@
-:root { font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif); color: var(--color-text-primary, #202124); background: var(--color-background-primary, #ffffff); }
-* { box-sizing: border-box; }
-html, body, #root { width: 100%; min-height: 100%; margin: 0; }
-body { background: var(--color-background-primary, #ffffff); }
-.card { width: 100%; min-height: 100%; padding: 1rem; color: var(--color-text-primary, #202124); background: var(--color-background-primary, #ffffff); box-shadow: none; filter: none; }
-.eyebrow { margin: 0 0 .35rem; color: var(--color-text-secondary, inherit); font-size: .72rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
-h1 { margin: 0 0 1rem; font-size: 1.35rem; line-height: 1.25; }
-.data-section { margin-top: 1rem; }
-.data-section h2 { margin: 0 0 .5rem; color: var(--color-text-secondary, inherit); font-size: .78rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
-.records { display: grid; gap: .65rem; }
-.records article, .details { padding: .85rem 1rem; border: 1px solid var(--color-border-primary, currentColor); border-radius: var(--border-radius-lg, .65rem); background: var(--color-background-secondary, transparent); box-shadow: none; filter: none; }
-.records article { display: grid; gap: .28rem; font-size: .88rem; }
-.records article strong { color: var(--color-text-secondary, inherit); font-weight: 600; }
-.details { display: grid; gap: 0; }
-.field { display: grid; grid-template-columns: minmax(8rem, 30%) 1fr; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid var(--color-border-primary, currentColor); overflow-wrap: anywhere; }
-.field:last-child { border-bottom: 0; }
-.field strong { color: var(--color-text-secondary, inherit); font-size: .8rem; font-weight: 600; }
-.field span { font-size: .9rem; }
-.pipeline-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: .8rem; color: var(--color-text-secondary, inherit); font-size: .8rem; }
-.pipeline-summary { display: flex; align-items: baseline; gap: .6rem; margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--color-border-primary, currentColor); }
-.pipeline-summary strong { font-size: .95rem; }
-.pipeline-summary span { color: var(--color-text-secondary, inherit); font-size: .8rem; }
-.pipeline-summary small { margin-left: auto; color: var(--color-text-secondary, inherit); font-size: .72rem; }
-.pipeline-toolbar select { margin-left: .4rem; padding: .35rem .5rem; border: 1px solid var(--color-border-primary, currentColor); border-radius: var(--border-radius-md, .5rem); color: inherit; background: var(--color-background-secondary, transparent); font: inherit; }
-.pipeline-columns { display: grid; grid-auto-columns: minmax(12rem, 1fr); grid-auto-flow: column; gap: .7rem; overflow-x: auto; padding-bottom: .5rem; }
-.pipeline-column { min-height: 14rem; padding: .55rem; border-radius: var(--border-radius-lg, .65rem); background: var(--color-background-secondary, transparent); box-shadow: none; filter: none; }
-.pipeline-column:first-child h2 { border-bottom-color: var(--color-accent-primary, #7564e8); }
-.pipeline-column h2 { display: flex; justify-content: space-between; margin: 0 0 .55rem; font-size: .82rem; }
-.pipeline-column h2 small { color: var(--color-text-secondary, inherit); font-weight: 500; }
-.deal-card { display: grid; gap: .3rem; margin-bottom: .55rem; padding: .7rem; border: 1px solid var(--color-border-primary, currentColor); border-radius: var(--border-radius-md, .5rem); background: var(--color-background-primary, transparent); box-shadow: none; filter: none; font-size: .78rem; }
-.deal-card span { color: var(--color-text-secondary, inherit); }
-.deal-card b { font-size: .9rem; }
-.deal-card em { width: fit-content; padding: .15rem .35rem; border-radius: .3rem; color: var(--color-text-secondary, inherit); background: var(--color-background-tertiary, transparent); font-size: .68rem; font-style: normal; }
-@media (max-width: 30rem) { .field { grid-template-columns: 1fr; gap: .2rem; } }
+@import "tailwindcss";
+
+/* MCP hosts set these variables on the document. Theme names stay separate so
+   Tailwind does not overwrite the host values. */
+@theme inline {
+    --font-host: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    --color-host-text: var(--color-text-primary, #202124);
+    --color-host-muted: var(--color-text-secondary, inherit);
+    --color-host-bg: var(--color-background-primary, #ffffff);
+    --color-host-surface: var(--color-background-secondary, transparent);
+    --color-host-chip: var(--color-background-tertiary, transparent);
+    --color-host-border: var(--color-border-primary, currentcolor);
+    --radius-card: var(--border-radius-lg, 0.65rem);
+    --radius-control: var(--border-radius-md, 0.5rem);
+}
+
+@layer base {
+    html,
+    body,
+    #root {
+        width: 100%;
+        min-height: 100%;
+        margin: 0;
+    }
+
+    body {
+        background: var(--color-host-bg);
+        color: var(--color-host-text);
+        font-family: var(--font-host);
+    }
+}
