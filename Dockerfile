@@ -7,7 +7,7 @@ WORKDIR /ui
 COPY app/ui/frappe_ui/package.json app/ui/frappe_ui/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-COPY app/ui/frappe_ui/index.html app/ui/frappe_ui/vite.config.js ./
+COPY app/ui/frappe_ui/index.html app/ui/frappe_ui/vite.config.ts app/ui/frappe_ui/tsconfig.json ./
 COPY app/ui/frappe_ui/src/ ./src/
 RUN npm run build
 
