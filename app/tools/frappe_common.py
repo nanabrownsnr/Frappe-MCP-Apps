@@ -16,9 +16,29 @@ def path_part(value: str) -> str:
 
 
 async def doctype_schema(doctype: str) -> dict[str, Any]:
-    """Fetch a DocType's metadata for internal schema-driven tool behavior."""
-    result = await get(f"/api/resource/DocType/{path_part(doctype)}")
-    return result if isinstance(result, dict) else {}
+    """Fetch Frappe's merged metadata, including custom fields, for a DocType."""
+    result = await get(
+        "/api/method/frappe.desk.form.load.getdoctype",
+        {"doctype": doctype},
+    )
+    if not isinstance(result, dict):
+        return {}
+
+    # getdoctype adds the metadata bundle to the top-level ``docs`` response.
+    # Also accept a ``message`` wrapper for Frappe versions/proxies that wrap
+    # the method response differently.
+    bundle = result.get("docs")
+    if not isinstance(bundle, list):
+        message = result.get("message")
+        bundle = message.get("docs") if isinstance(message, dict) else message
+    if isinstance(bundle, dict):
+        bundle = [bundle]
+    if isinstance(bundle, list):
+        for metadata in bundle:
+            if isinstance(metadata, dict) and metadata.get("name") == doctype:
+                return metadata
+
+    raise ValueError(f"Frappe returned no metadata for DocType {doctype!r}.")
 
 
 def schema_fields(schema: dict[str, Any]) -> list[dict[str, Any]]:
