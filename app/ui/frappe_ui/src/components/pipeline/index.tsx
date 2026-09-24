@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import type { CRMDeal } from "@/types/response-types";
+import type { CRMDealList } from "@/types/response-types";
 import { Board, type Card } from "./board";
+import Header from "../header";
 
 const STAGE_ORDER = [
   "Qualification",
@@ -16,7 +17,7 @@ const STAGE_ORDER = [
 const CLOSED = new Set(["Won", "Lost"]);
 const ALL_SERVICE_LINES = "";
 
-type Deal = CRMDeal["records"][number];
+type Deal = CRMDealList["records"][number];
 
 function stageRank(status: string): number {
   const index = STAGE_ORDER.indexOf(status);
@@ -42,7 +43,7 @@ export default function Pipeline({
   structuredContent,
   canDrag = false,
 }: {
-  structuredContent: CRMDeal;
+  structuredContent: CRMDealList;
   canDrag?: boolean;
 }) {
   const [records, setRecords] = useState(structuredContent.records);
@@ -82,18 +83,14 @@ export default function Pipeline({
   );
 
   return (
-    <section className="bg-bg-page p-4 text-dark">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[15px] font-bold tracking-[-0.01em]">Pipeline</h1>
-          <p className="text-[11px] text-gray-4">{cards.length} deals</p>
-        </div>
+    <section className="flex flex-col gap-y-4 min-h-svh">
+      <Header title="Pipeline" subtitle={`${cards.length} deals`}>
         <label className="text-[11px] font-semibold text-gray-4">
           <span className="sr-only">Service line</span>
           <select
             value={serviceLine}
             onChange={(event) => setServiceLine(event.target.value)}
-            className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-dark"
+            className="rounded-full bg-white border px-2.5 py-1 text-[11px] font-semibold text-dark"
           >
             <option value={ALL_SERVICE_LINES}>All service lines</option>
             {serviceLines.map((line) => (
@@ -103,7 +100,7 @@ export default function Pipeline({
             ))}
           </select>
         </label>
-      </div>
+      </Header>
       <Board
         cards={cards}
         columns={columns}

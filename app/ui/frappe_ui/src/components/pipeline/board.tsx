@@ -33,10 +33,15 @@ function columnTotal(cards: Card[]): string {
   const totals = new Map<string, number>();
   for (const card of cards) {
     if (!card.deal_value) continue;
-    totals.set(card.currency, (totals.get(card.currency) ?? 0) + card.deal_value);
+    totals.set(
+      card.currency,
+      (totals.get(card.currency) ?? 0) + card.deal_value
+    );
   }
   if (totals.size === 0) return "—";
-  return [...totals.entries()].map(([currency, amount]) => money(amount, currency)).join(" · ");
+  return [...totals.entries()]
+    .map(([currency, amount]) => money(amount, currency))
+    .join(" · ");
 }
 
 function BoardCard({
@@ -68,8 +73,8 @@ function BoardCard({
       className={cn(
         "group relative flex flex-col gap-1.5 rounded-[12px] border p-3 text-left transition-all",
         flagged ? "border-amber-text/40 bg-butter" : "border-border bg-white",
-        canDrag && "cursor-grab active:cursor-grabbing",
-        dragging && "opacity-40",
+        canDrag && "cursor-grab",
+        dragging && "opacity-40"
       )}
     >
       {canDrag && (
@@ -79,12 +84,16 @@ function BoardCard({
           className="absolute right-2 top-2.5 text-gray-6 opacity-0 transition-opacity group-hover:opacity-100"
         />
       )}
-      <span className="pr-4 text-[12.5px] font-semibold leading-snug text-dark">{card.organization}</span>
+      <span className="pr-4 text-[12.5px] font-semibold leading-snug text-dark">
+        {card.organization}
+      </span>
       <span className="text-[11px] text-gray-4">{card.lead_name}</span>
       <span
         className={cn(
           "font-sans tabular-nums",
-          value ? "text-[15px] font-bold tracking-[-0.01em] text-dark" : "text-[12px] text-gray-5",
+          value
+            ? "text-[15px] font-bold tracking-[-0.01em] text-dark"
+            : "text-[12px] text-gray-5"
         )}
       >
         {value ?? "No value"}
@@ -130,13 +139,13 @@ export function Board({
   };
 
   return (
-    <div>
-      <div className="mb-3 flex items-center gap-2 text-[11px] text-gray-4">
+    <div className="flex flex-col gap-y-4 flex-1 px-1">
+      <div className=" flex items-center gap-2 text-[11px] text-gray-4">
         <ArrowUp size={12} aria-hidden />
         Grouped by status · ranked by deal value
         {canDrag && " · drag a card between columns"}
       </div>
-      <div className="overflow-x-auto pb-2">
+      <div className="overflow-x-auto flex-1 pb-2">
         <div className="flex min-w-max gap-2">
           {columns.map((col) => {
             const inCol = cards
@@ -154,8 +163,11 @@ export function Board({
                   if (overCol !== col.value) setOverCol(col.value);
                 }}
                 onDragLeave={(event) => {
-                  if (event.currentTarget.contains(event.relatedTarget as Node)) return;
-                  setOverCol((current) => (current === col.value ? null : current));
+                  if (event.currentTarget.contains(event.relatedTarget as Node))
+                    return;
+                  setOverCol((current) =>
+                    current === col.value ? null : current
+                  );
                 }}
                 onDrop={(event) => {
                   if (!canDrag) return;
@@ -165,11 +177,18 @@ export function Board({
                 aria-label={col.label}
                 className={cn(
                   "flex w-[172px] flex-col gap-2 rounded-[12px] p-1 transition-colors",
-                  isOver && "bg-violet-light ring-1 ring-violet-mid",
+                  isOver && "bg-violet-light ring-1 ring-violet-mid"
                 )}
               >
-                <div className={cn("border-b-2 px-1 pb-2", hot ? "border-amber-text" : "border-border")}>
-                  <div className="text-[12px] font-bold leading-snug text-dark">{col.label}</div>
+                <div
+                  className={cn(
+                    "border-b-2 px-1 pb-2",
+                    hot ? "border-amber-text" : "border-border"
+                  )}
+                >
+                  <div className="text-[12px] font-bold leading-snug text-dark">
+                    {col.label}
+                  </div>
                   <div className="mt-0.5 font-sans text-[10.5px] tabular-nums text-gray-4">
                     {inCol.length} · {columnTotal(inCol)} · {col.meta}
                   </div>
@@ -179,7 +198,9 @@ export function Board({
                     <div
                       className={cn(
                         "rounded-[12px] border border-dashed px-3 py-4 text-center text-[11px]",
-                        isOver ? "border-violet text-violet" : "border-border text-gray-5",
+                        isOver
+                          ? "border-violet text-violet"
+                          : "border-border text-gray-5"
                       )}
                     >
                       {isOver ? "Drop here" : "No deals"}

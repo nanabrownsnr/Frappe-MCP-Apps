@@ -3,14 +3,15 @@ export type ResultType = {
     ui: {
       resourceUri: string;
     };
+    toolname: string;
   };
   content: { type: string; text: string }[];
   structuredContent: StructuredContent;
 };
 
-export type StructuredContent = CRMDeal | CRMLead;
+export type StructuredContent = CRMDealList | CRMLead;
 
-export type CRMDeal = {
+export type CRMDealList = {
   doctype: "CRM Deal";
   records: CRMDealRecord[];
   columns: CRMDealColumn[];

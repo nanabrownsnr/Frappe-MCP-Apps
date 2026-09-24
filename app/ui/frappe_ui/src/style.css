@@ -57,6 +57,9 @@
   --color-amber-text: #b45309;
   --color-butter: #fff8eb;
   --color-bg-page: #f6f6f8;
+
+  --color-host-bg: var(--host-background-color, #ffffff);
+  --color-host-text: var(--host-text-color, #000000);
 }
 
 :root {
