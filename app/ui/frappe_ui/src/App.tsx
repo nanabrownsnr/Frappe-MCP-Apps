@@ -16,6 +16,9 @@ type CreateField = {
   label: string;
   fieldtype: string;
   options?: string | null;
+  default?: unknown;
+  child_doctype?: string;
+  child_fields?: CreateField[];
   reqd?: boolean;
   mandatory_depends_on?: string | null;
   description?: string | null;
@@ -93,18 +96,48 @@ function CreateForm({
   const update = (field: CreateField, value: unknown) =>
     setValues((current) => ({ ...current, [field.fieldname]: value }));
 
-  const renderControl = (field: CreateField) => {
-    const value = values[field.fieldname];
+  const renderControl = (
+    field: CreateField,
+    value: unknown = values[field.fieldname],
+    setValue: (value: unknown) => void = (next) => update(field, next),
+  ) => {
     const className = "w-full rounded-control border border-host-border bg-host-bg px-3 py-2 text-host-text [font:inherit]";
+    if (field.fieldtype === "Table") {
+      const rows = Array.isArray(value) ? value.filter(isRecord) : [];
+      const childFields = field.child_fields ?? [];
+      const updateRows = (nextRows: Record<string, unknown>[]) => setValue(nextRows);
+      const addRow = () => {
+        const defaults = Object.fromEntries(childFields.filter((child) => child.default !== undefined && child.default !== null).map((child) => [child.fieldname, child.default]));
+        updateRows([...rows, defaults]);
+      };
+      return (
+        <div className="grid gap-3">
+          {rows.map((row, index) => (
+            <article className="grid gap-3 rounded-control border border-host-border bg-host-bg p-3" key={text(row.name) || index}>
+              <div className="flex items-center justify-between"><strong className="text-xs text-host-muted">{field.label} {index + 1}</strong><Button type="button" size="sm" variant="outline" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>Remove</Button></div>
+              {childFields.map((child) => (
+                <label className="grid gap-1 text-[0.82rem]" key={child.fieldname}>
+                  <span className="font-semibold text-host-muted">{child.label}{child.reqd ? " *" : child.mandatory_depends_on ? " · Required when applicable" : ""}</span>
+                  {renderControl(child, row[child.fieldname], (next) => updateRows(rows.map((oldRow, rowIndex) => rowIndex === index ? { ...oldRow, [child.fieldname]: next } : oldRow)))}
+                  {child.description ? <small className="text-host-muted">{child.description}</small> : null}
+                </label>
+              ))}
+            </article>
+          ))}
+          {!childFields.length ? <p className="text-[0.78rem] text-host-muted">No editable row fields were returned for {field.child_doctype ?? "this child table"}.</p> : null}
+          <div><Button type="button" size="sm" variant="outline" onClick={addRow}>Add row</Button></div>
+        </div>
+      );
+    }
     if (field.fieldtype === "Check") {
-      return <input type="checkbox" checked={isChecked(value)} onChange={(event) => update(field, event.target.checked ? 1 : 0)} />;
+      return <input type="checkbox" checked={isChecked(value)} onChange={(event) => setValue(event.target.checked ? 1 : 0)} />;
     }
     if (["Text", "Small Text", "Long Text", "Code"].includes(field.fieldtype)) {
-      return <textarea className={className} rows={3} value={text(value)} onChange={(event) => update(field, event.target.value)} />;
+      return <textarea className={className} rows={3} value={text(value)} onChange={(event) => setValue(event.target.value)} />;
     }
     if (field.fieldtype === "Select" && field.options) {
       return (
-        <select className={className} value={text(value)} onChange={(event) => update(field, event.target.value)}>
+        <select className={className} value={text(value)} onChange={(event) => setValue(event.target.value)}>
           <option value="">Choose…</option>
           {field.options.split("\n").filter(Boolean).map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
@@ -117,15 +150,23 @@ function CreateForm({
     return (
       <input className={className} type={inputType} step={inputType === "number" ? "any" : undefined}
         value={value == null ? "" : String(value)}
-        onChange={(event) => update(field, inputType === "number" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value)} />
+        onChange={(event) => setValue(inputType === "number" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value)} />
     );
   };
 
   const submit = async () => {
     if (!app || submitting || outcomeUnknown) return;
-    const missing = required.filter((field) => values[field.fieldname] == null || values[field.fieldname] === "");
-    if (missing.length) {
-      setError(`Fill in required fields: ${missing.map((field) => field.label).join(", ")}.`);
+    const missing = required.filter((field) => {
+      const value = values[field.fieldname];
+      return value == null || value === "" || (field.fieldtype === "Table" && (!Array.isArray(value) || value.length === 0));
+    });
+    const missingChildRows = form.fields.filter((field) => field.fieldtype === "Table").flatMap((field) => {
+      const value = values[field.fieldname];
+      const rows = Array.isArray(value) ? value.filter(isRecord) : [];
+      return rows.flatMap((row, rowIndex) => (field.child_fields ?? []).filter((child) => child.reqd && (row[child.fieldname] == null || row[child.fieldname] === "")).map((child) => `${field.label} row ${rowIndex + 1}: ${child.label}`));
+    });
+    if (missing.length || missingChildRows.length) {
+      setError(`Fill in required fields: ${[...missing.map((field) => field.label), ...missingChildRows].join(", ")}.`);
       return;
     }
     setSubmitting(true);

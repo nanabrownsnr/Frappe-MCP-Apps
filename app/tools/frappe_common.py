@@ -201,6 +201,7 @@ async def _request(
     *,
     params: dict[str, Any] | None = None,
     json_body: dict[str, Any] | None = None,
+    redact_response: bool = True,
 ) -> Any:
     base, auth = await connection()
     try:
@@ -301,11 +302,21 @@ async def _request(
             "Frappe returned a successful status but the response was not valid JSON. "
             "Retry, and check the site/API response if it persists.",
         ) from error
-    return redact(body.get("data", body.get("message", body)))
+    result = body.get("data", body.get("message", body))
+    return redact(result) if redact_response else result
 
 
 async def get(path: str, params: dict[str, Any] | None = None) -> Any:
     return await _request("GET", path, params=params)
+
+
+async def get_for_update(path: str) -> Any:
+    """Read an unredacted record for an internal read/modify/write operation.
+
+    The value must only be used to preserve existing fields while constructing
+    a write; callers should return the normal redacted response from the save.
+    """
+    return await _request("GET", path, redact_response=False)
 
 
 async def put(path: str, json_body: dict[str, Any]) -> Any:

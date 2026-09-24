@@ -441,7 +441,6 @@ async def test_create_prepare_builds_form_from_merged_schema_without_writing(ser
             {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Open\nClosed", "default": "Open"},
             {"fieldname": "locked", "label": "Locked", "fieldtype": "Data", "read_only": 1},
             {"fieldname": "internal_note", "label": "Internal", "fieldtype": "Data", "hidden": 1},
-            {"fieldname": "products", "label": "Products", "fieldtype": "Table"},
         ],
     }
 
@@ -521,6 +520,151 @@ async def test_create_record_validates_then_posts_and_returns_created_record(ser
     monkeypatch.setattr(frappe_create_record, "post", rejected)
     with pytest.raises(frappe_common.FrappeRequestError, match="Invalid organization"):
         await invoke(server, "frappe_create_record", {"doctype": "CRM Deal", "values": {"organization": "Acme"}})
+
+
+@pytest.mark.asyncio
+async def test_create_tools_resolve_and_validate_child_table_schemas(server, monkeypatch):
+    parent_schema = {
+        "name": "Contact",
+        "fields": [
+            {"fieldname": "first_name", "label": "First Name", "fieldtype": "Data", "reqd": 1},
+            {"fieldname": "email_ids", "label": "Email Addresses", "fieldtype": "Table", "options": "Contact Email"},
+        ],
+    }
+    child_schema = {
+        "name": "Contact Email",
+        "istable": 1,
+        "fields": [
+            {"fieldname": "email_id", "label": "Email Address", "fieldtype": "Data", "reqd": 1},
+            {"fieldname": "is_primary", "label": "Is Primary", "fieldtype": "Check", "default": 0},
+        ],
+    }
+
+    async def schema(doctype):
+        return {"Contact": parent_schema, "Contact Email": child_schema}[doctype]
+
+    monkeypatch.setattr(frappe_create_prepare, "doctype_schema", schema)
+    prepared = await invoke(server, "frappe_create_prepare", {"doctype": "Contact"})
+    table = next(field for field in prepared.structured_content["fields"] if field["fieldname"] == "email_ids")
+    assert table["child_doctype"] == "Contact Email"
+    assert [field["fieldname"] for field in table["child_fields"]] == ["email_id", "is_primary"]
+    assert prepared.structured_content["values"]["email_ids"] == []
+
+    calls = []
+
+    async def post(path, values):
+        calls.append((path, values))
+        return {"name": "CONTACT-001", **values}
+
+    monkeypatch.setattr(frappe_create_record, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_create_record, "post", post)
+    values = {
+        "first_name": "Alice",
+        "email_ids": [{"email_id": "alice@example.com", "is_primary": 1}],
+    }
+    created = await invoke(server, "frappe_create_record", {"doctype": "Contact", "values": values})
+    assert calls == [("/api/resource/Contact", values)]
+    assert created.structured_content["record"]["email_ids"] == values["email_ids"]
+
+    with pytest.raises(ValueError, match="email_ids\\[0\\].*unknown.*invalid_field"):
+        await invoke(
+            server,
+            "frappe_create_record",
+            {"doctype": "Contact", "values": {**values, "email_ids": [{"email_id": "alice@example.com", "invalid_field": "x"}]}},
+        )
+    with pytest.raises(ValueError, match="email_ids\\[0\\].*required field.*Email Address"):
+        await invoke(
+            server,
+            "frappe_create_record",
+            {"doctype": "Contact", "values": {**values, "email_ids": [{"is_primary": 1}]}},
+        )
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_update_appends_child_rows_without_dropping_existing_rows(server, monkeypatch):
+    parent_schema = {
+        "name": "Contact",
+        "fields": [
+            {"fieldname": "first_name", "label": "First Name", "fieldtype": "Data"},
+            {"fieldname": "email_ids", "label": "Email Addresses", "fieldtype": "Table", "options": "Contact Email"},
+        ],
+    }
+    child_schema = {
+        "name": "Contact Email",
+        "istable": 1,
+        "fields": [
+            {"fieldname": "email_id", "label": "Email Address", "fieldtype": "Data", "reqd": 1},
+            {"fieldname": "is_primary", "label": "Is Primary", "fieldtype": "Check"},
+        ],
+    }
+
+    async def schema(doctype):
+        return {"Contact": parent_schema, "Contact Email": child_schema}[doctype]
+
+    existing = {
+        "doctype": "Contact",
+        "name": "CONTACT-001",
+        "email_ids": [
+            {"name": "ROW-1", "email_id": "old@example.com", "is_primary": 1, "parent": "CONTACT-001", "parentfield": "email_ids"}
+        ],
+    }
+    reads = []
+    writes = []
+
+    async def get_for_update(path):
+        reads.append(path)
+        return existing
+
+    async def put(path, values):
+        writes.append((path, values))
+        return {"name": "CONTACT-001", **values}
+
+    monkeypatch.setattr(frappe_update, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_update, "get_for_update", get_for_update)
+    monkeypatch.setattr(frappe_update, "put", put)
+    result = await invoke(
+        server,
+        "frappe_update",
+        {
+            "doctype": "Contact",
+            "name": "CONTACT-001",
+            "child_table_changes": [
+                {"fieldname": "email_ids", "operation": "append", "rows": [{"email_id": "new@example.com", "is_primary": 0}]}
+            ],
+        },
+    )
+
+    assert reads == ["/api/resource/Contact/CONTACT-001"]
+    assert writes == [
+        (
+            "/api/resource/Contact/CONTACT-001",
+            {"email_ids": [*existing["email_ids"], {"email_id": "new@example.com", "is_primary": 0}]},
+        )
+    ]
+    assert result.structured_content["record"]["email_ids"][0]["name"] == "ROW-1"
+    assert result.structured_content["record"]["email_ids"][1]["email_id"] == "new@example.com"
+
+    with pytest.raises(ValueError, match="child_table_changes.*unknown.*bad_field"):
+        await invoke(
+            server,
+            "frappe_update",
+            {
+                "doctype": "Contact",
+                "name": "CONTACT-001",
+                "child_table_changes": [
+                    {"fieldname": "email_ids", "operation": "append", "rows": [{"bad_field": "x"}]}
+                ],
+            },
+        )
+    with pytest.raises(ValueError, match="cannot replace child table.*child_table_changes"):
+        await invoke(
+            server,
+            "frappe_update",
+            {"doctype": "Contact", "name": "CONTACT-001", "values": {"email_ids": []}},
+        )
+    assert len(reads) == 1
+    assert len(writes) == 1
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,6 @@ from app.tools.frappe_common import (
     doctype_schema,
     path_part,
     post,
-    schema_fields,
     validate_doctype,
 )
 from app.ui.frappe_ui.resource import VIEW_URI
@@ -40,7 +39,6 @@ _UNSUPPORTED_TYPES = {
     "Read Only",
     "Section Break",
     "Tab Break",
-    "Table",
     "Table MultiSelect",
 }
 
@@ -49,23 +47,77 @@ def _enabled(value: Any) -> bool:
     return value is True or value == 1 or value == "1"
 
 
-def _createable_fields(schema: dict[str, Any]) -> tuple[set[str], dict[str, str]]:
-    fields = schema_fields(schema)
-    editable = {
-        field["fieldname"]
-        for field in fields
-        if field["fieldname"] not in _SYSTEM_FIELDS
+def _createable_fields(
+    schema: dict[str, Any], *, allow_tables: bool = True
+) -> dict[str, dict[str, Any]]:
+    raw_fields = schema.get("fields", [])
+    if not isinstance(raw_fields, list):
+        return {}
+    return {
+        field["fieldname"]: field
+        for field in raw_fields
+        if isinstance(field, dict)
+        and field.get("fieldname")
+        and not field.get("hidden")
+        and field["fieldname"] not in _SYSTEM_FIELDS
         and not field["fieldname"].startswith("_")
         and field.get("fieldtype") not in _UNSUPPORTED_TYPES
+        and (allow_tables or field.get("fieldtype") != "Table")
         and not _enabled(field.get("read_only"))
         and not _enabled(field.get("is_virtual"))
     }
-    required = {
-        field["fieldname"]: field.get("label") or field["fieldname"]
-        for field in fields
-        if field["fieldname"] in editable and _enabled(field.get("reqd"))
-    }
-    return editable, required
+
+
+async def _validate_values(
+    values: dict[str, Any],
+    fields: dict[str, dict[str, Any]],
+    doctype: str,
+    path: str = "Input 'values'",
+) -> None:
+    unknown = sorted(set(values) - set(fields))
+    if unknown:
+        raise ValueError(
+            f"{path} contains unknown, hidden, read-only, or unsupported field(s) for "
+            f"{doctype}: {', '.join(unknown)}. Reopen the create form to refresh its schema."
+        )
+
+    missing = [
+        fieldname
+        for fieldname, field in fields.items()
+        if _enabled(field.get("reqd"))
+        and (
+            values.get(fieldname) is None
+            or values.get(fieldname) == ""
+            or (field.get("fieldtype") == "Table" and not values.get(fieldname))
+        )
+    ]
+    if missing:
+        labels = [fields[fieldname].get("label") or fieldname for fieldname in missing]
+        raise ValueError(
+            f"{path} is missing required field(s): {', '.join(labels)} "
+            f"({', '.join(missing)}). Fill them in the create form."
+        )
+
+    for fieldname, field in fields.items():
+        if field.get("fieldtype") != "Table" or fieldname not in values:
+            continue
+        rows = values[fieldname]
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ValueError(f"{path}.{fieldname} must be a list of child-row objects.")
+        if not rows:
+            continue
+        child_doctype = field.get("options")
+        if not isinstance(child_doctype, str) or not child_doctype.strip():
+            raise ValueError(f"Frappe metadata for table field {fieldname!r} has no child DocType.")
+        child_schema = await doctype_schema(child_doctype)
+        child_fields = _createable_fields(child_schema, allow_tables=False)
+        for row_index, row in enumerate(rows):
+            await _validate_values(
+                row,
+                child_fields,
+                child_doctype,
+                f"{path}.{fieldname}[{row_index}]",
+            )
 
 
 def register_tool(mcp) -> None:
@@ -88,20 +140,8 @@ def register_tool(mcp) -> None:
             raise ValueError("Every key in input 'values' must be a non-empty field name.")
 
         schema = await doctype_schema(doctype)
-        allowed, required = _createable_fields(schema)
-        unknown = sorted(set(values) - allowed)
-        if unknown:
-            raise ValueError(
-                f"Input 'values' contains unknown, hidden, read-only, or unsupported field(s) "
-                f"for {doctype}: {', '.join(unknown)}. Reopen the create form to refresh its schema."
-            )
-        missing = sorted(name for name in required if values.get(name) is None or values.get(name) == "")
-        if missing:
-            missing_labels = [required[name] for name in missing]
-            raise ValueError(
-                "Input 'values' is missing required field(s): "
-                f"{', '.join(missing_labels)} ({', '.join(missing)}). Fill them in the create form."
-            )
+        allowed = _createable_fields(schema)
+        await _validate_values(values, allowed, doctype)
 
         created = await post(f"/api/resource/{path_part(doctype)}", values)
         if not isinstance(created, dict) or not created.get("name"):
