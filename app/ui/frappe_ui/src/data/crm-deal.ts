@@ -5,6 +5,7 @@ export const crmDealDta: ResultType = {
     ui: {
       resourceUri: "ui://twynity/frappe-dashboard.html",
     },
+    toolname: "frappe_list",
   },
   content: [
     {
@@ -830,7 +831,8 @@ export const crmDealDta: ResultType = {
         label: "SLA Status",
         key: "sla_status",
         type: "Select",
-        options: "\nFirst Response Due\nRolling Response Due\nFailed\nFulfilled",
+        options:
+          "\nFirst Response Due\nRolling Response Due\nFailed\nFulfilled",
       },
       {
         label: "Communication Status",
