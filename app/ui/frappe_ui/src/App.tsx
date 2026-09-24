@@ -38,6 +38,9 @@ const scalar = (value: unknown) =>
 const text = (value: unknown) =>
   typeof value === "string" || typeof value === "number" ? String(value) : "";
 
+const isChecked = (value: unknown) =>
+  value === true || value === 1 || (typeof value === "string" && ["1", "true", "yes"].includes(value.trim().toLowerCase()));
+
 function RecordView({ value }: { value: Record<string, unknown> }) {
   const simple = Object.entries(value).filter(([, item]) => item === null || typeof item !== "object");
   const nested = Object.entries(value).filter(([, item]) => item !== null && typeof item === "object");
@@ -94,7 +97,7 @@ function CreateForm({
     const value = values[field.fieldname];
     const className = "w-full rounded-control border border-host-border bg-host-bg px-3 py-2 text-host-text [font:inherit]";
     if (field.fieldtype === "Check") {
-      return <input type="checkbox" checked={Boolean(value)} onChange={(event) => update(field, event.target.checked ? 1 : 0)} />;
+      return <input type="checkbox" checked={isChecked(value)} onChange={(event) => update(field, event.target.checked ? 1 : 0)} />;
     }
     if (["Text", "Small Text", "Long Text", "Code"].includes(field.fieldtype)) {
       return <textarea className={className} rows={3} value={text(value)} onChange={(event) => update(field, event.target.value)} />;

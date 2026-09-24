@@ -715,8 +715,11 @@ async def test_shared_get_success_redaction_and_upstream_error_mapping(monkeypat
         return ValidationFailure(417)
 
     monkeypatch.setattr(Client, "request", invalid_document)
-    with pytest.raises(frappe_common.FrappeRequestError, match="First Name is required"):
+    with pytest.raises(frappe_common.FrappeRequestError) as create_error:
         await frappe_common.post("/api/resource/Contact", {"email_id": "person@example.com"})
+    assert "Frappe rejected the create request" in str(create_error.value)
+    assert "this record was not created" in str(create_error.value)
+    assert "First Name is required" in str(create_error.value)
 
     async def gateway_failure(*args, **kwargs):
         return Failure(502)

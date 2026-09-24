@@ -258,6 +258,13 @@ async def _request(
             f"Check the exact DocType and record name. {detail}",
         )
     if status == 417:
+        if method.upper() == "POST":
+            raise FrappeRequestError(
+                status,
+                f"Frappe rejected the create request (417); this record was not created. "
+                f"Frappe validation detail: {detail} Correct the indicated field(s) or linked "
+                "records in the form, then retry.",
+            )
         raise FrappeRequestError(
             status,
             f"Frappe rejected the request (417). Check the DocType, field names, supplied field "
