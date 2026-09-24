@@ -212,6 +212,12 @@ async def _request(
                 headers=headers,
             )
     except httpx.TimeoutException as error:
+        if method.upper() == "POST":
+            raise FrappeRequestError(
+                None,
+                "The Frappe create request timed out; the outcome is unknown. Check whether the "
+                "record was created before retrying, to avoid creating a duplicate.",
+            ) from error
         raise FrappeRequestError(
             None,
             f"Frappe request timed out after {settings.FRAPPE_TIMEOUT_SECONDS:g}s. "
@@ -260,9 +266,14 @@ async def _request(
             "limit or fewer requests.",
         )
     if status >= 500:
+        retry_hint = (
+            " Check whether the record was created before retrying, to avoid a duplicate."
+            if method.upper() == "POST"
+            else " Retry shortly."
+        )
         raise FrappeRequestError(
             status,
-            f"Frappe returned a server error ({status}). Retry shortly; if it persists, "
+            f"Frappe returned a server error ({status}).{retry_hint} If it persists, "
             f"check Frappe server health. {detail}",
         )
     if status >= 400:
@@ -289,3 +300,8 @@ async def get(path: str, params: dict[str, Any] | None = None) -> Any:
 async def put(path: str, json_body: dict[str, Any]) -> Any:
     """Update a Frappe document using its normal REST save/validation path."""
     return await _request("PUT", path, json_body=json_body)
+
+
+async def post(path: str, json_body: dict[str, Any]) -> Any:
+    """Create a Frappe document through its standard REST insert path."""
+    return await _request("POST", path, json_body=json_body)

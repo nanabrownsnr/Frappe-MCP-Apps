@@ -20,6 +20,8 @@ from app.config import settings
 from app.frappe_connection import ensure_schema
 from app.license import license_watcher
 from app.tools.frappe_count import register_tool as register_frappe_count
+from app.tools.frappe_create_prepare import register_tool as register_frappe_create_prepare
+from app.tools.frappe_create_record import register_tool as register_frappe_create_record
 from app.tools.frappe_doctypes import register_tool as register_frappe_doctypes
 from app.tools.frappe_get import register_tool as register_frappe_get
 from app.tools.frappe_job_overview import register_tool as register_frappe_job_overview
@@ -60,7 +62,10 @@ mcp = FastMCP(
         "from the DocType schema internally. Its chat result contains the record count and exact "
         "record IDs with labels; full data is sent to the canvas. Do not repeat a list call just "
         "to obtain fields. If the user asks to open a listed record, call frappe_get with the "
-        "exact DocType and ID from the result. When asked to change a record, call "
+        "exact DocType and ID from the result. When asked to create a record, call "
+        "frappe_create_prepare to open a schema-driven form for user review; do not create it "
+        "directly. Only the UI's explicit Create button may invoke the app-only "
+        "frappe_create_record tool. When asked to change a record, call "
         "frappe_update with only the explicitly requested fields and values; use null only when "
         "the user explicitly asks to clear a field. Do not claim a change succeeded unless the "
         "tool confirms it. For a pipeline or record view, tell the user the "
@@ -83,6 +88,8 @@ register_frappe_doctypes(mcp)
 register_frappe_schema(mcp)
 register_frappe_job_overview(mcp)
 register_frappe_update(mcp)
+register_frappe_create_prepare(mcp)
+register_frappe_create_record(mcp)
 
 
 class UsageTrackingMiddleware(MCPMiddleware):

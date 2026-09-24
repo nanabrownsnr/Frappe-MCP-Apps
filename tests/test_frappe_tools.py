@@ -11,6 +11,8 @@ from fastmcp.exceptions import ValidationError
 from app.tools import (
     frappe_common,
     frappe_count,
+    frappe_create_prepare,
+    frappe_create_record,
     frappe_doctypes,
     frappe_get,
     frappe_job_overview,
@@ -57,6 +59,8 @@ def server():
         frappe_count,
         frappe_job_overview,
         frappe_update,
+        frappe_create_prepare,
+        frappe_create_record,
     ):
         module.register_tool(mcp)
     return mcp
@@ -426,6 +430,138 @@ async def test_update_passes_explicit_null_and_surfaces_frappe_validation(server
             "frappe_update",
             {"doctype": "CRM Deal", "name": "CRM-DEAL-0001", "values": {"status": "No Such Status"}},
         )
+
+
+@pytest.mark.asyncio
+async def test_create_prepare_builds_form_from_merged_schema_without_writing(server, monkeypatch):
+    schema_data = {
+        **SCHEMA,
+        "fields": [
+            {"fieldname": "organization", "label": "Organization", "fieldtype": "Data", "reqd": 1},
+            {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Open\nClosed", "default": "Open"},
+            {"fieldname": "locked", "label": "Locked", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "internal_note", "label": "Internal", "fieldtype": "Data", "hidden": 1},
+            {"fieldname": "products", "label": "Products", "fieldtype": "Table"},
+        ],
+    }
+
+    async def schema(doctype):
+        assert doctype == "CRM Deal"
+        return schema_data
+
+    async def no_write(*args, **kwargs):
+        pytest.fail("Prepare must never make a write request")
+
+    monkeypatch.setattr(frappe_create_prepare, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_create_prepare, "post", no_write, raising=False)
+    result = await invoke(server, "frappe_create_prepare", {"doctype": "CRM Deal", "values": {"organization": "Acme"}})
+    payload = result.structured_content
+    assert payload["mode"] == "create_form"
+    assert payload["values"] == {"status": "Open", "organization": "Acme"}
+    assert payload["missing_required"] == []
+    assert {field["fieldname"] for field in payload["fields"]} == {"organization", "status"}
+    assert "nothing has been created" in text_of(result)
+    assert result.meta["ui"]["resourceUri"]
+
+    with pytest.raises(ValueError, match="unknown, hidden, read-only, or unsupported.*locked"):
+        await invoke(server, "frappe_create_prepare", {"doctype": "CRM Deal", "values": {"locked": "x"}})
+    with pytest.raises(ValueError, match="unknown, hidden, read-only, or unsupported.*internal_note"):
+        await invoke(server, "frappe_create_prepare", {"doctype": "CRM Deal", "values": {"internal_note": "x"}})
+    with pytest.raises(ValueError, match="non-empty exact"):
+        await invoke(server, "frappe_create_prepare", {"doctype": " "})
+
+
+@pytest.mark.asyncio
+async def test_create_record_validates_then_posts_and_returns_created_record(server, monkeypatch):
+    schema_data = {
+        **SCHEMA,
+        "fields": [
+            {"fieldname": "organization", "label": "Organization", "fieldtype": "Data", "reqd": 1},
+            {"fieldname": "status", "label": "Status", "fieldtype": "Select"},
+            {"fieldname": "locked", "label": "Locked", "fieldtype": "Data", "read_only": 1},
+        ],
+    }
+
+    async def schema(_doctype):
+        return schema_data
+
+    calls = []
+
+    async def upstream(path, values):
+        calls.append((path, values))
+        return {"name": "CRM-DEAL-0002", **values}
+
+    monkeypatch.setattr(frappe_create_record, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_create_record, "post", upstream)
+    result = await invoke(server, "frappe_create_record", {"doctype": "CRM Deal", "values": {"organization": "Acme", "status": "Open"}})
+    assert calls == [("/api/resource/CRM%20Deal", {"organization": "Acme", "status": "Open"})]
+    assert result.structured_content == {
+        "mode": "created_record", "doctype": "CRM Deal",
+        "record": {"name": "CRM-DEAL-0002", "organization": "Acme", "status": "Open"},
+    }
+    assert "CRM-DEAL-0002" in text_of(result)
+    assert not result.meta or "ui" not in result.meta
+
+    async def no_post(*args, **kwargs):
+        pytest.fail("Invalid create input must not be sent to Frappe")
+
+    monkeypatch.setattr(frappe_create_record, "post", no_post)
+    with pytest.raises(ValueError, match="required field.*Organization"):
+        await invoke(server, "frappe_create_record", {"doctype": "CRM Deal", "values": {"status": "Open"}})
+    with pytest.raises(ValueError, match="read-only, or unsupported.*locked"):
+        await invoke(server, "frappe_create_record", {"doctype": "CRM Deal", "values": {"organization": "Acme", "locked": "x"}})
+    with pytest.raises(ValueError, match="unknown, hidden, read-only, or unsupported.*internal_note"):
+        await invoke(server, "frappe_create_record", {"doctype": "CRM Deal", "values": {"organization": "Acme", "internal_note": "x"}})
+    with pytest.raises(ValueError, match="non-empty object"):
+        await invoke(server, "frappe_create_record", {"doctype": "CRM Deal", "values": {}})
+
+    async def rejected(path, values):
+        raise frappe_common.FrappeRequestError(417, "Invalid organization")
+
+    monkeypatch.setattr(frappe_create_record, "post", rejected)
+    with pytest.raises(frappe_common.FrappeRequestError, match="Invalid organization"):
+        await invoke(server, "frappe_create_record", {"doctype": "CRM Deal", "values": {"organization": "Acme"}})
+
+
+@pytest.mark.asyncio
+async def test_shared_post_transport_and_ambiguous_timeout_hint(monkeypatch):
+    requests = []
+
+    class Response:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"data": {"name": "NEW-001", "organization": "Acme"}}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def request(self, method, url, **kwargs):
+            requests.append((method, url, kwargs))
+            return Response()
+
+    monkeypatch.setattr(frappe_common, "connection", lambda: asyncio.sleep(0, result=("https://frappe.invalid", "token a:b")))
+    monkeypatch.setattr(frappe_common.httpx, "AsyncClient", Client)
+    assert await frappe_common.post("/api/resource/CRM%20Deal", {"organization": "Acme"}) == {"name": "NEW-001", "organization": "Acme"}
+    assert requests[0][0] == "POST"
+    assert requests[0][1] == "https://frappe.invalid/api/resource/CRM%20Deal"
+    assert requests[0][2]["json"] == {"organization": "Acme"}
+    assert requests[0][2]["headers"]["Content-Type"] == "application/json"
+
+    async def timeout(*args, **kwargs):
+        raise httpx.ReadTimeout("late response")
+
+    monkeypatch.setattr(Client, "request", timeout)
+    with pytest.raises(frappe_common.FrappeRequestError, match="outcome is unknown.*avoid creating a duplicate"):
+        await frappe_common.post("/api/resource/CRM%20Deal", {"organization": "Acme"})
 
 
 @pytest.mark.asyncio
