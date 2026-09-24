@@ -5,14 +5,23 @@ import { createRoot } from "react-dom/client";
 
 import App from "./App.tsx";
 import "./style.css";
+import LocalApp from "./LocalApp.tsx";
 
 const root = document.querySelector("#root");
 if (!root) {
-    throw new Error("Missing #root element");
+  throw new Error("Missing #root element");
 }
 
-createRoot(root).render(
+if (import.meta.env.MODE === "development") {
+  createRoot(root).render(
     <StrictMode>
-        <App />
-    </StrictMode>,
-);
+      <LocalApp />
+    </StrictMode>
+  );
+} else {
+  createRoot(root).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  );
+}
