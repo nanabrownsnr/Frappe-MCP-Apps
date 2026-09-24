@@ -17,6 +17,7 @@ type CreateField = {
   fieldtype: string;
   options?: string | null;
   reqd?: boolean;
+  mandatory_depends_on?: string | null;
   description?: string | null;
 };
 type CreateFormData = {
@@ -85,6 +86,7 @@ function CreateForm({
   const [outcomeUnknown, setOutcomeUnknown] = useState(false);
   const required = form.fields.filter((field) => field.reqd);
   const optional = form.fields.filter((field) => !field.reqd);
+  const conditionalRequired = optional.some((field) => field.mandatory_depends_on);
   const update = (field: CreateField, value: unknown) =>
     setValues((current) => ({ ...current, [field.fieldname]: value }));
 
@@ -151,7 +153,7 @@ function CreateForm({
 
   const renderField = (field: CreateField) => (
     <label className="grid gap-1 text-[0.82rem]" key={field.fieldname}>
-      <span className="font-semibold text-host-muted">{field.label}{field.reqd ? " *" : ""}</span>
+      <span className="font-semibold text-host-muted">{field.label}{field.reqd ? " *" : field.mandatory_depends_on ? " · Required when applicable" : ""}</span>
       {renderControl(field)}
       {field.description ? <small className="text-host-muted">{field.description}</small> : null}
     </label>
@@ -161,7 +163,7 @@ function CreateForm({
     <section className="grid gap-4">
       <p className="text-[0.85rem] text-host-muted">Review the values below. Nothing is saved until you create it.</p>
       {required.length ? <div className="grid gap-3 rounded-card border border-host-border bg-host-surface p-4"><h2 className="text-[0.8rem] font-bold uppercase tracking-wide text-host-muted">Required fields</h2>{required.map(renderField)}</div> : null}
-      {optional.length ? <details className="rounded-card border border-host-border bg-host-surface p-4"><summary className="cursor-pointer text-[0.8rem] font-bold uppercase tracking-wide text-host-muted">Optional fields ({optional.length})</summary><div className="mt-4 grid gap-3">{optional.map(renderField)}</div></details> : null}
+      {optional.length ? <details open={required.length === 0} className="rounded-card border border-host-border bg-host-surface p-4"><summary className="cursor-pointer text-[0.8rem] font-bold uppercase tracking-wide text-host-muted">Additional fields ({optional.length})</summary><div className="mt-3 grid gap-3">{required.length === 0 ? <p className="text-[0.78rem] text-host-muted">Frappe reports no unconditional required fields for this DocType. Some fields may still be required conditionally or by server-side validation.</p> : null}{conditionalRequired ? <p className="text-[0.78rem] text-host-muted">Fields marked “Required when applicable” depend on the values entered.</p> : null}{optional.map(renderField)}</div></details> : null}
       {error ? <p className="rounded-control border border-red-500/40 bg-red-500/10 p-3 text-[0.85rem]" role="alert">{error}</p> : null}
       <div className="flex justify-end"><Button disabled={!app || submitting || outcomeUnknown} onClick={() => void submit()}>{submitting ? "Creating…" : outcomeUnknown ? "Check Frappe before retrying" : "Create"}</Button></div>
     </section>

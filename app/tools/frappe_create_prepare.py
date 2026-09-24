@@ -91,15 +91,19 @@ def register_tool(mcp) -> None:
         doctype: str,
         values: dict[str, Any] | None = None,
     ) -> ToolResult:
-        """Prepare an editable create form for a Frappe DocType; never create yet.
+        """Prepare a user-reviewed Frappe create form; this tool never writes.
 
-        First use frappe_doctypes to identify the exact DocType. If several
-        DocTypes could match the user's wording, ask which one they mean.
-        Prefill only values the user supplied or clearly implied. This tool
-        reads merged DocType metadata and returns a form for the user to review;
-        it does not write to Frappe. Ask for missing required values when they
-        cannot be inferred. The user confirms creation by pressing Create in
-        the UI; do not call the app-only frappe_create_record tool yourself.
+        Use this whenever the user asks to create, add, or make a new Frappe
+        record, for example “create a new lead” or “add a contact”. First call
+        frappe_doctypes to find the exact DocType that matches the request. If
+        multiple DocTypes could fit (for example CRM Lead and Lead), ask which
+        one they mean; do not guess. Pass values the user supplied or that are
+        unambiguous from context. This tool reads merged DocType metadata and
+        opens an editable form in the app UI; it does not save anything. The
+        user reviews/edits the form and confirms by pressing Create. Never call
+        the app-only frappe_create_record tool yourself; only that explicit UI
+        action may invoke it. Frappe remains authoritative for conditional and
+        server-side validation.
         """
         doctype = validate_doctype(doctype)
         if values is not None and not isinstance(values, dict):
