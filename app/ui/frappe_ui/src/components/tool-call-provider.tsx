@@ -18,6 +18,7 @@ import type { ResultType } from "@/types/response-types";
 import { generateId } from "@/lib/utils";
 
 type ToolCall = {
+  id: string;
   arguments?: Record<string, unknown>;
   result: ResultType | null;
   status: "idle" | "running" | "completed" | "error";
@@ -40,27 +41,33 @@ const ToolCallContext = createContext<ToolCallContextType>({
 
 export function ToolCallProvider({ children }: { children: React.ReactNode }) {
   const [toolCall, setToolCall] = useState<ToolCall | null>(null);
+  const pendingCallRef = useRef<ToolCall | null>(null);
 
   const onAppCreated = useCallback((createdApp: App) => {
-    // createdApp.ontoolinput = (input) => {
-    //   setToolCall({
-    //     arguments: input.arguments,
-    //     result: null,
-    //     status: "running",
-    //   });
-    // };
-
-    createdApp.ontoolresult = (result) => {
-      console.log("result", result);
+    createdApp.ontoolinput = (input) => {
       setToolCall({
-        result: result as ResultType,
-        status: "completed",
+        id: generateId(),
+        arguments: input.arguments,
+        result: null,
+        status: "running",
       });
     };
 
-    // createdApp.ontoolcancelled = () => {
-    //   setToolCall((prev) => (prev ? { ...prev, status: "error" } : null));
-    // };
+    createdApp.ontoolresult = (result) => {
+      setToolCall((prev) =>
+        prev
+          ? { ...prev, result: result as ResultType, status: "completed" }
+          : {
+              id: generateId(),
+              result: result as ResultType,
+              status: "completed",
+            }
+      );
+    };
+
+    createdApp.ontoolcancelled = () => {
+      setToolCall((prev) => (prev ? { ...prev, status: "error" } : null));
+    };
   }, []);
 
   const { app, isConnected, error } = useApp({
@@ -74,8 +81,13 @@ export function ToolCallProvider({ children }: { children: React.ReactNode }) {
   useHostFonts(app, app?.getHostContext());
   useDocumentTheme();
 
+  const value = useMemo(
+    () => ({ app, toolCall, isConnected, error }),
+    [app, toolCall, isConnected, error]
+  );
+
   return (
-    <ToolCallContext.Provider value={{ app, toolCall, isConnected, error }}>
+    <ToolCallContext.Provider value={value}>
       {children}
     </ToolCallContext.Provider>
   );
