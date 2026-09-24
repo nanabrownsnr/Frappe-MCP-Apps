@@ -109,7 +109,9 @@ class UsageTrackingMiddleware(MCPMiddleware):
         except Exception:
             logger.exception("Usage tracking failed — continuing with tool call anyway")
 
-        return await call_next(context)
+        result = await call_next(context)
+        result.meta = {**(result.meta or {}), "toolname": context.message.name}
+        return result
 
 
 mcp.add_middleware(UsageTrackingMiddleware())
