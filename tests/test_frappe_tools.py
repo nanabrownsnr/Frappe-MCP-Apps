@@ -704,6 +704,20 @@ async def test_shared_get_success_redaction_and_upstream_error_mapping(monkeypat
     with pytest.raises(frappe_common.FrappeRequestError, match="417"):
         await frappe_common.get("/api/resource/Test")
 
+    class ValidationFailure(Failure):
+        def json(self):
+            return {
+                "exc_type": "ValidationError",
+                "_server_messages": json.dumps([json.dumps({"message": "First Name is required"})]),
+            }
+
+    async def invalid_document(*args, **kwargs):
+        return ValidationFailure(417)
+
+    monkeypatch.setattr(Client, "request", invalid_document)
+    with pytest.raises(frappe_common.FrappeRequestError, match="First Name is required"):
+        await frappe_common.post("/api/resource/Contact", {"email_id": "person@example.com"})
+
     async def gateway_failure(*args, **kwargs):
         return Failure(502)
 

@@ -99,10 +99,6 @@ def _response_detail(response: httpx.Response) -> str:
     except ValueError:
         body = None
     if isinstance(body, dict):
-        for key in ("message", "_error_message", "exc_type"):
-            value = body.get(key)
-            if isinstance(value, str) and value.strip():
-                return " ".join(value.split())[:400]
         messages = body.get("_server_messages")
         if isinstance(messages, str):
             try:
@@ -120,6 +116,14 @@ def _response_detail(response: httpx.Response) -> str:
                         parsed = parsed.get("message") or parsed.get("title")
                     if isinstance(parsed, str) and parsed.strip():
                         return " ".join(parsed.split())[:400]
+        # Frappe often sets ``exc_type`` to the generic name "ValidationError"
+        # while the actionable field-level reason is in ``_server_messages``.
+        # Prefer useful response details over that generic exception label.
+        for key in ("_error_message", "message", "exception", "exc_type"):
+            value = body.get(key)
+            if isinstance(value, str) and value.strip():
+                # ``exception`` may contain a full traceback; only expose its first line.
+                return " ".join(value.splitlines()[0].split())[:400]
     return " ".join(response.text.split())[:400]
 
 
