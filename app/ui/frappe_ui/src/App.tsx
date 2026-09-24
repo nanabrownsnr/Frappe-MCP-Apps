@@ -50,8 +50,6 @@ function MCPView() {
 
   return (
     <main className="min-h-svh w-full bg-host-bg text-host-text relative">
-      <p>isconnected {isConnected ? "true" : "false"}</p>
-      <p> tool call ; {JSON.stringify(toolCall)}</p>
       {render}
     </main>
   );
