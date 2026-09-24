@@ -21,6 +21,7 @@ from app.tools import (
     frappe_search,
     frappe_update,
 )
+from app.tools.frappe_common import default_list_fields, schema_fields
 
 SCHEMA = {
     "name": "CRM Deal",
@@ -120,6 +121,28 @@ async def test_schema_tool_returns_metadata(server, monkeypatch):
     assert plain_value(result)["fields"][1]["fieldname"] == "custom_service_line"
 
 
+def test_default_list_fields_prioritize_frappe_metadata_and_exclude_unsafe_types():
+    schema = {
+        "title_field": "display_name",
+        "search_fields": "search_label,display_name",
+        "fields": [
+            {"fieldname": "other", "fieldtype": "Data"},
+            {"fieldname": "display_name", "fieldtype": "Data"},
+            {"fieldname": "list_field", "fieldtype": "Link", "in_list_view": 1},
+            {"fieldname": "search_label", "fieldtype": "Select"},
+            {"fieldname": "global_field", "fieldtype": "Data", "in_global_search": 1},
+            {"fieldname": "long_note", "fieldtype": "Long Text", "in_list_view": 1},
+            {"fieldname": "password", "fieldtype": "Password", "in_list_view": 1},
+            {"fieldname": "rows", "fieldtype": "Table", "in_list_view": 1},
+            {"fieldname": "private_bank_account", "fieldtype": "Data", "in_list_view": 1},
+        ],
+    }
+
+    selected = default_list_fields(schema, schema_fields(schema), limit=5)
+
+    assert selected == ["name", "display_name", "list_field", "search_label", "global_field"]
+
+
 @pytest.mark.asyncio
 async def test_doctypes_success_query_filters_and_limit(server, monkeypatch):
     async def upstream(path, params):
@@ -150,7 +173,7 @@ async def test_doctypes_bad_upstream_shape_and_bad_input(server, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_list_success_includes_custom_field_in_request_and_canvas(server, monkeypatch):
+async def test_list_default_selects_five_metadata_driven_fields(server, monkeypatch):
     async def schema(_doctype):
         return SCHEMA
 
@@ -164,10 +187,13 @@ async def test_list_success_includes_custom_field_in_request_and_canvas(server, 
     monkeypatch.setattr(frappe_list, "get", upstream)
     result = await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
     requested = json.loads(calls[0][1]["fields"])
-    assert "custom_service_line" in requested
+    assert requested == ["name", "organization", "custom_service_line", "status", "owner"]
+    assert len(requested) == 5
     assert "internal_note" not in requested
     assert result.structured_content["records"] == [RECORD]
-    assert any(column["key"] == "custom_service_line" for column in result.structured_content["columns"])
+    assert [column["key"] for column in result.structured_content["columns"]] == [
+        fieldname for fieldname in requested if fieldname in RECORD
+    ]
     assert "CRM-DEAL-0001" in text_of(result)
     assert "canvas" in text_of(result)
 
@@ -202,15 +228,56 @@ async def test_list_bad_field_empty_response_and_417_fallback(server, monkeypatc
         await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
 
     async def fallback(path, params):
-        calls.append(json.loads(params["fields"]))
-        if len(calls) == 1:
+        selected = json.loads(params["fields"])
+        calls.append(selected)
+        if len(selected) > 3:
             raise frappe_common.FrappeRequestError(417, "field rejected")
         return [{"name": "CRM-DEAL-0001"}]
 
     monkeypatch.setattr(frappe_list, "get", fallback)
     await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
-    assert "custom_service_line" in calls[0]
-    assert calls[1] == ["name"]
+    assert calls == [
+        ["name", "organization", "custom_service_line", "status", "owner"],
+        ["name", "organization", "custom_service_line", "status"],
+        ["name", "organization", "custom_service_line"],
+    ]
+
+
+@pytest.mark.asyncio
+async def test_list_explicit_fields_are_name_plus_only_requested_fields(server, monkeypatch):
+    calls = []
+
+    async def schema(_doctype):
+        return SCHEMA
+
+    async def upstream(_path, params):
+        calls.append(json.loads(params["fields"]))
+        return [RECORD]
+
+    monkeypatch.setattr(frappe_list, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_list, "get", upstream)
+    result = await invoke(
+        server,
+        "frappe_list",
+        {"doctype": "CRM Deal", "fields": ["status", "custom_service_line", "status"]},
+    )
+
+    assert calls == [["name", "status", "custom_service_line"]]
+    assert [column["key"] for column in result.structured_content["columns"]] == calls[0]
+
+
+@pytest.mark.asyncio
+async def test_list_explicit_field_rejection_is_not_silently_reduced(server, monkeypatch):
+    async def schema(_doctype):
+        return SCHEMA
+
+    async def rejected(*args, **kwargs):
+        raise frappe_common.FrappeRequestError(417, "field rejected")
+
+    monkeypatch.setattr(frappe_list, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_list, "get", rejected)
+    with pytest.raises(frappe_common.FrappeRequestError, match="field rejected"):
+        await invoke(server, "frappe_list", {"doctype": "CRM Deal", "fields": ["status"]})
 
 
 @pytest.mark.asyncio

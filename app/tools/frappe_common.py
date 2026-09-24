@@ -60,6 +60,83 @@ def schema_fields(schema: dict[str, Any]) -> list[dict[str, Any]]:
     return list(by_name.values())
 
 
+_LIST_PREVIEW_TYPES = {
+    "Autocomplete",
+    "Check",
+    "Currency",
+    "Data",
+    "Date",
+    "Datetime",
+    "Duration",
+    "Dynamic Link",
+    "Email",
+    "Float",
+    "Int",
+    "Link",
+    "Percent",
+    "Phone",
+    "Rating",
+    "Read Only",
+    "Select",
+    "Time",
+}
+_REDACTED_FIELD_MARKERS = ("password", "secret", "token", "salary", "bank", "sin", "passport")
+
+
+def default_list_fields(
+    schema: dict[str, Any], metadata: list[dict[str, Any]], limit: int = 5
+) -> list[str]:
+    """Choose a small generic list projection from Frappe's DocType metadata.
+
+    The name field is always included. Remaining slots prefer the configured
+    title, list-view fields, search fields, global-search fields, preview
+    fields, and finally ordinary scalar fields in schema order.
+    """
+    fields_by_name = {field["fieldname"]: field for field in metadata}
+
+    def enabled(value: Any) -> bool:
+        return value is True or value == 1 or value == "1"
+
+    def usable(fieldname: Any) -> bool:
+        if not isinstance(fieldname, str) or fieldname not in fields_by_name:
+            return False
+        field = fields_by_name[fieldname]
+        lowered = fieldname.lower()
+        return (
+            field.get("fieldtype") in _LIST_PREVIEW_TYPES
+            and not enabled(field.get("hidden"))
+            and not enabled(field.get("is_virtual"))
+            and not any(marker in lowered for marker in _REDACTED_FIELD_MARKERS)
+        )
+
+    ordered: list[str] = ["name"]
+
+    def add(fieldname: Any) -> None:
+        if usable(fieldname) and fieldname not in ordered:
+            ordered.append(fieldname)
+
+    add(schema.get("title_field"))
+
+    for field in metadata:
+        if enabled(field.get("in_list_view")):
+            add(field.get("fieldname"))
+
+    search_fields = schema.get("search_fields", "")
+    if isinstance(search_fields, str):
+        for fieldname in search_fields.split(","):
+            add(fieldname.strip())
+
+    for flag in ("in_global_search", "in_preview"):
+        for field in metadata:
+            if enabled(field.get(flag)):
+                add(field.get("fieldname"))
+
+    for field in metadata:
+        add(field.get("fieldname"))
+
+    return ordered[: max(1, limit)]
+
+
 class FrappeRequestError(RuntimeError):
     def __init__(self, status_code: int | None, detail: str):
         self.status_code = status_code
@@ -139,8 +216,11 @@ def redact(value: Any) -> Any:
         return [redact(item) for item in value]
     if not isinstance(value, dict):
         return value
-    blocked = ("password", "secret", "token", "salary", "bank", "sin", "passport")
-    return {k: redact(v) for k, v in value.items() if not any(x in k.lower() for x in blocked)}
+    return {
+        k: redact(v)
+        for k, v in value.items()
+        if not any(marker in k.lower() for marker in _REDACTED_FIELD_MARKERS)
+    }
 
 
 def chat_data(summary: str, data: Any, *, canvas: bool = False) -> str:

@@ -20,7 +20,7 @@ The server uses the caller's saved Frappe base URL, API key, and API secret. Cre
 | --- | --- |
 | `frappe_doctypes` | Discover available DocTypes and their modules. Use the exact returned DocType name in subsequent calls; ask the user if multiple DocTypes plausibly match. |
 | `frappe_schema` | Inspect a DocType's fields and metadata, including custom fields when returned by Frappe. |
-| `frappe_list` | List records, with optional filters, ordering, pagination, and field selection. If fields are omitted, the tool derives them from the DocType schema. The chat response is a compact record index containing count and exact record names; the records and columns are returned for the canvas. |
+| `frappe_list` | List records, with optional filters, ordering, pagination, and field selection. By default it returns at most five fields total: the exact record `name` plus up to four metadata-selected preview fields. If `fields` is supplied, it returns `name` plus exactly those fields. The chat response is a compact record index containing count and exact record names; selected records and columns are returned for the canvas. |
 | `frappe_search` | Search a DocType using its configured search fields, global-search fields, or record name. It discovers schema and searchable fields internally. |
 | `frappe_count` | Count records in a DocType, optionally using Frappe filters. |
 | `frappe_get` | Fetch a complete record using its exact DocType and Frappe `name` (the document ID). Use the `name` supplied by list/search results. |
@@ -29,7 +29,7 @@ The server uses the caller's saved Frappe base URL, API key, and API secret. Cre
 | `frappe_create_prepare` | Fetch schema and open a prefilled, editable form. This does not save anything. |
 | `frappe_create_record` | App-only tool invoked by the form's explicit **Create** button. Validates the submitted values, creates one record, and returns it for a read-only details view. It is not Frappe's document Submit workflow action. |
 
-The assistant is instructed to discover DocTypes before querying or preparing a create form, avoid guessing between plausible DocTypes, use exact record IDs for `frappe_get`, and never invoke the app-only create tool on the user's behalf. Frappe validates permissions, required conditions, workflows, and document hooks on every write.
+The assistant is instructed to discover DocTypes before querying or preparing a create form, avoid guessing between plausible DocTypes, use exact record IDs for `frappe_get`, and never invoke the app-only create tool on the user's behalf. When a requested visualization needs more than the default list preview, the assistant can inspect the schema and explicitly request its fields. Frappe validates permissions, required conditions, workflows, and document hooks on every write.
 
 ### Create flow
 
