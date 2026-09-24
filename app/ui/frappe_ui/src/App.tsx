@@ -13,8 +13,6 @@ export default function App() {
 function MCPView() {
   const { error, isConnected, toolCall } = useToolCall();
 
-  console.log("toolCall", toolCall);
-
   const render = useMemo(() => {
     if (!toolCall) return null;
     if (toolCall.status === "idle") return;
