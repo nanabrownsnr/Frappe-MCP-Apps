@@ -84,13 +84,14 @@ _REDACTED_FIELD_MARKERS = ("password", "secret", "token", "salary", "bank", "sin
 
 
 def default_list_fields(
-    schema: dict[str, Any], metadata: list[dict[str, Any]], limit: int = 5
+    schema: dict[str, Any], metadata: list[dict[str, Any]], limit: int = 8
 ) -> list[str]:
     """Choose a small generic list projection from Frappe's DocType metadata.
 
-    The name field is always included. Remaining slots prefer the configured
-    title, list-view fields, search fields, global-search fields, preview
-    fields, and finally ordinary scalar fields in schema order.
+    Preserve the existing five-field selection order (name, title, list-view,
+    search/global-search/preview hints, then schema order). Any additional
+    slots prioritize Currency and custom fields before the remaining schema
+    fields. The name field is always included.
     """
     fields_by_name = {field["fieldname"]: field for field in metadata}
 
@@ -109,11 +110,11 @@ def default_list_fields(
             and not any(marker in lowered for marker in _REDACTED_FIELD_MARKERS)
         )
 
-    ordered: list[str] = ["name"]
+    baseline: list[str] = ["name"]
 
     def add(fieldname: Any) -> None:
-        if usable(fieldname) and fieldname not in ordered:
-            ordered.append(fieldname)
+        if usable(fieldname) and fieldname not in baseline:
+            baseline.append(fieldname)
 
     add(schema.get("title_field"))
 
@@ -134,7 +135,40 @@ def default_list_fields(
     for field in metadata:
         add(field.get("fieldname"))
 
-    return ordered[: max(1, limit)]
+    field_limit = max(1, limit)
+    if field_limit <= 5:
+        return baseline[:field_limit]
+
+    # Keep the old five-field result stable; use only the newly available
+    # slots for the additional dynamic priorities.
+    selected = baseline[:5]
+
+    def add_extra(fieldname: Any) -> None:
+        if usable(fieldname) and fieldname not in selected:
+            selected.append(fieldname)
+
+    for field in metadata:
+        if field.get("fieldtype") == "Currency":
+            add_extra(field.get("fieldname"))
+
+    # `is_custom_field` is the Frappe metadata marker. The `custom_` prefix is
+    # a useful fallback for older or customized metadata responses.
+    for field in metadata:
+        fieldname = field.get("fieldname")
+        if enabled(field.get("is_custom_field")) or (
+            isinstance(fieldname, str) and fieldname.startswith("custom_")
+        ):
+            add_extra(fieldname)
+
+    # A Currency DocField's options commonly name its companion currency field.
+    for field in metadata:
+        if field.get("fieldtype") == "Currency":
+            add_extra(field.get("options"))
+
+    for fieldname in baseline[5:]:
+        add_extra(fieldname)
+
+    return selected[:field_limit]
 
 
 class FrappeRequestError(RuntimeError):

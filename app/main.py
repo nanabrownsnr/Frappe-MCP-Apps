@@ -58,7 +58,7 @@ mcp = FastMCP(
         "use frappe_doctypes to identify the exact DocType when needed, then use that exact name. "
         "If multiple discovered DocTypes could reasonably match the request, ask the user which "
         "one they mean instead of guessing. "
-        "For ordinary lists, omit fields: frappe_list discovers a compact five-field preview "
+        "For ordinary lists, omit fields: frappe_list discovers a compact eight-field preview "
         "from the DocType schema, always including the exact record ID (`name`). Its chat result "
         "contains the record count and exact record IDs with labels; selected data is sent to the "
         "canvas. If a requested visualization needs more fields than the preview, inspect "
