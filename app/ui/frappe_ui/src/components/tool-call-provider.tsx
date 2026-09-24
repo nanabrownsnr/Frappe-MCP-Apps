@@ -79,7 +79,7 @@ export function ToolCallProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({ app, toolCall, isConnected, error }),
-    [app, toolCall, isConnected, error]
+    [app, toolCall?.id, toolCall?.status, isConnected, error]
   );
 
   return (
