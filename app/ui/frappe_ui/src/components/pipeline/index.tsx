@@ -46,7 +46,7 @@ function toCard(deal: Deal): Card {
 
 export default function Pipeline({
   structuredContent,
-  canDrag = true,
+  canDrag = false,
 }: {
   structuredContent: CRMDealList;
   canDrag?: boolean;
@@ -90,8 +90,8 @@ export default function Pipeline({
         });
       }
     },
-    onError: (mutationError) => {
-      setError(mutationError.message);
+    onError: (error) => {
+      setError(error.message);
     },
   });
 

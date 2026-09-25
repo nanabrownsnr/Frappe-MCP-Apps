@@ -36,7 +36,7 @@ export default function FrappeListView({
       });
       return response as ResultType;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, { name }) => {
       if (data.isError) {
         const message =
           data.content

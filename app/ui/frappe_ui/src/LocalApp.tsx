@@ -23,7 +23,7 @@ export default function LocalApp() {
   const [toolCall, setToolCall] = useState<ToolCall | null>({
     id: "1",
     arguments: {},
-    result: crmDealDta,
+    result: frappeCreatePrepareData,
     status: "completed",
   });
 
