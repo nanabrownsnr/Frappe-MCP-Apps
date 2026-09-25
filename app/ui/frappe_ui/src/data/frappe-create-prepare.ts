@@ -950,4 +950,5 @@ export const frappeCreatePrepareData: ResultType = {
       },
     ],
   },
+  isError: false,
 };

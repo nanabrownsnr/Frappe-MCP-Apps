@@ -908,4 +908,5 @@ export const crmDealDta: ResultType = {
       },
     ],
   },
+  isError: false,
 };

@@ -148,4 +148,5 @@ export const crmLeadData: ResultType = {
       },
     ],
   },
+  isError: false,
 };
