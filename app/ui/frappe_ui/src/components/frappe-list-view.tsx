@@ -6,6 +6,7 @@ import { useToolCall } from "./tool-call-provider";
 import { useState } from "react";
 import Notice from "./notice";
 import { Button } from "./ui/button";
+import { generateId } from "@/lib/utils";
 
 function recordName(record: Record<string, unknown>): string | undefined {
   const name = record.name;
@@ -20,14 +21,14 @@ export default function FrappeListView({
   structuredContent: FrappeList;
 }) {
   const { doctype, records } = structuredContent;
-  const { app } = useToolCall();
+  const { app, setToolCall } = useToolCall();
   const [error, setError] = useState<string | null>(null);
 
-  const { mutate: getRecord } = useMutation({
+  const { mutate: getRecord, isPending } = useMutation({
     mutationFn: async ({ name }: { name: string }) => {
       if (!app) throw new Error("No app found");
       const response = await app.callServerTool({
-        name: "frappe_get",
+        name: "frappe_ge",
         arguments: {
           doctype,
           name,
@@ -43,6 +44,16 @@ export default function FrappeListView({
             .filter(Boolean)
             .join(" ") || "An error occurred.";
         setError(message);
+      } else {
+        setToolCall({
+          id: generateId(),
+          arguments: {
+            doctype,
+            name,
+          },
+          result: data,
+          status: "completed",
+        });
       }
     },
     onError: (error) => {
@@ -52,7 +63,11 @@ export default function FrappeListView({
 
   return (
     <section className="flex min-h-svh flex-col gap-y-4">
-      <Header title={doctype} subtitle={`${records.length} records`} />
+      <Header
+        title={doctype}
+        subtitle={`${records.length} records`}
+        isLoading={isPending}
+      />
 
       {!!error && (
         <div className="px-4">

@@ -63,6 +63,17 @@
 
   --color-host-bg: var(--host-background-color, #ffffff);
   --color-host-text: var(--host-text-color, #000000);
+
+  --animate-topLoader: topLoader 1.5s infinite ease-in-out;
+
+  @keyframes topLoader {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
 }
 
 :root {

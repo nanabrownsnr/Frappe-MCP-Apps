@@ -28,6 +28,7 @@ export type ToolCall = {
 interface ToolCallContextType {
   app: ReturnType<typeof useApp>["app"];
   toolCall: ToolCall | null;
+  setToolCall: (toolCall: ToolCall) => void;
   isConnected: boolean;
   error: Error | null;
 }
@@ -36,7 +37,6 @@ const ToolCallContext = createContext<ToolCallContextType | null>(null);
 
 export function ToolCallProvider({ children }: { children: React.ReactNode }) {
   const [toolCall, setToolCall] = useState<ToolCall | null>(null);
-  const pendingCallRef = useRef<ToolCall | null>(null);
 
   const onAppCreated = useCallback((createdApp: App) => {
     createdApp.ontoolinput = (input) => {
@@ -77,8 +77,8 @@ export function ToolCallProvider({ children }: { children: React.ReactNode }) {
   useDocumentTheme();
 
   const value = useMemo(
-    () => ({ app, toolCall, isConnected, error }),
-    [app, toolCall, isConnected, error]
+    () => ({ app, toolCall, setToolCall, isConnected, error }),
+    [app, toolCall, setToolCall, isConnected, error]
   );
 
   return (
