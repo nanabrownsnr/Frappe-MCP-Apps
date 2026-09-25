@@ -219,7 +219,7 @@ async def test_list_default_selects_metadata_driven_fields(server, monkeypatch):
 
     monkeypatch.setattr(frappe_list, "doctype_schema", schema)
     monkeypatch.setattr(frappe_list, "get", upstream)
-    result = await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
+    result = await invoke(server, "frappe_list", {"doctype": "Generic Doc"})
     requested = json.loads(calls[0][1]["fields"])
     assert requested == [
         "name",
@@ -241,6 +241,69 @@ async def test_list_default_selects_metadata_driven_fields(server, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_crm_deal_list_always_returns_pipeline_fields_id_and_heat(server, monkeypatch):
+    pipeline_fields = [
+        "name",
+        "status",
+        "organization",
+        "lead_name",
+        "deal_value",
+        "currency",
+        "custom_service_line",
+        "probability",
+    ]
+    schema_data = {
+        "name": "CRM Deal",
+        "title_field": "organization",
+        "fields": [
+            {"fieldname": fieldname, "label": fieldname, "fieldtype": "Data"}
+            for fieldname in pipeline_fields[1:]
+        ],
+    }
+    upstream_records = [
+        {
+            "name": "DEAL-OPEN",
+            "status": "Discovery",
+            "organization": "Acme Corp",
+            "lead_name": "Alice Johnson",
+            "deal_value": 22000,
+            "currency": "CHF",
+            "custom_service_line": "Consulting",
+            "probability": 75,
+        },
+        {
+            "name": "DEAL-WON",
+            "status": "Won",
+            "organization": "Beta Ltd",
+            "lead_name": "Bob Smith",
+            "deal_value": 35000,
+            "currency": "EUR",
+            "custom_service_line": "Product",
+            "probability": 100,
+        },
+    ]
+
+    async def schema(_doctype):
+        return schema_data
+
+    async def upstream(_path, params):
+        assert json.loads(params["fields"]) == pipeline_fields
+        return upstream_records
+
+    monkeypatch.setattr(frappe_list, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_list, "get", upstream)
+    result = await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
+
+    records = result.structured_content["records"]
+    assert records[0]["id"] == records[0]["name"] == "DEAL-OPEN"
+    assert records[0]["currency"] == "CHF"
+    assert records[0]["deal_value"] == 22000
+    assert records[0]["custom_service_line"] == "Consulting"
+    assert records[0]["heat"] == 1
+    assert records[1]["heat"] == 0
+
+
+@pytest.mark.asyncio
 async def test_list_bad_field_empty_response_and_417_fallback(server, monkeypatch):
     async def schema(_doctype):
         return SCHEMA
@@ -252,13 +315,13 @@ async def test_list_bad_field_empty_response_and_417_fallback(server, monkeypatc
 
     monkeypatch.setattr(frappe_list, "doctype_schema", schema)
     monkeypatch.setattr(frappe_list, "get", no_records)
-    assert "Found 0 CRM Deal" in text_of(
-        await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
+    assert "Found 0 Generic Doc" in text_of(
+        await invoke(server, "frappe_list", {"doctype": "Generic Doc"})
     )
     with pytest.raises(ValueError, match="Unknown fields"):
-        await invoke(server, "frappe_list", {"doctype": "CRM Deal", "fields": ["not_a_field"]})
+        await invoke(server, "frappe_list", {"doctype": "Generic Doc", "fields": ["not_a_field"]})
     with pytest.raises(ValueError, match=r"filters\[0\]"):
-        await invoke(server, "frappe_list", {"doctype": "CRM Deal", "filters": [["status", "Won"]]})
+        await invoke(server, "frappe_list", {"doctype": "Generic Doc", "filters": [["status", "Won"]]})
     with pytest.raises(ValueError, match="doctype"):
         await invoke(server, "frappe_list", {"doctype": " "})
 
@@ -267,7 +330,7 @@ async def test_list_bad_field_empty_response_and_417_fallback(server, monkeypatc
 
     monkeypatch.setattr(frappe_list, "get", malformed)
     with pytest.raises(ValueError, match="invalid record list"):
-        await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
+        await invoke(server, "frappe_list", {"doctype": "Generic Doc"})
 
     async def fallback(path, params):
         selected = json.loads(params["fields"])
@@ -277,7 +340,7 @@ async def test_list_bad_field_empty_response_and_417_fallback(server, monkeypatc
         return [{"name": "CRM-DEAL-0001"}]
 
     monkeypatch.setattr(frappe_list, "get", fallback)
-    await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
+    await invoke(server, "frappe_list", {"doctype": "Generic Doc"})
     assert calls == [
         [
             "name",
@@ -341,7 +404,7 @@ async def test_list_upstream_failure_and_invalid_input(server, monkeypatch):
     monkeypatch.setattr(frappe_list, "doctype_schema", schema)
     monkeypatch.setattr(frappe_list, "get", unavailable)
     with pytest.raises(httpx.ConnectError):
-        await invoke(server, "frappe_list", {"doctype": "CRM Deal"})
+        await invoke(server, "frappe_list", {"doctype": "Generic Doc"})
     with pytest.raises(ValidationError):
         await invoke(server, "frappe_list", {"doctype": "CRM Deal", "limit": "many"})
 
@@ -554,7 +617,7 @@ async def test_create_prepare_builds_form_from_merged_schema_without_writing(ser
     schema_data = {
         **SCHEMA,
         "fields": [
-            {"fieldname": "organization", "label": "Organization", "fieldtype": "Data", "reqd": 1},
+            {"fieldname": "organization", "label": "Organization", "fieldtype": "Link", "options": "CRM Organization", "reqd": 1},
             {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Open\nClosed", "default": "Open"},
             {"fieldname": "locked", "label": "Locked", "fieldtype": "Data", "read_only": 1},
             {"fieldname": "internal_note", "label": "Internal", "fieldtype": "Data", "hidden": 1},
@@ -568,7 +631,14 @@ async def test_create_prepare_builds_form_from_merged_schema_without_writing(ser
     async def no_write(*args, **kwargs):
         pytest.fail("Prepare must never make a write request")
 
+    async def link_records(path, params):
+        assert path == "/api/resource/CRM%20Organization"
+        assert json.loads(params["fields"]) == ["name"]
+        assert params["limit_page_length"] == 100
+        return [{"name": "Acme Corp"}, {"name": "TechStart Inc"}]
+
     monkeypatch.setattr(frappe_create_prepare, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_create_prepare, "get", link_records)
     monkeypatch.setattr(frappe_create_prepare, "post", no_write, raising=False)
     result = await invoke(server, "frappe_create_prepare", {"doctype": "CRM Deal", "values": {"organization": "Acme"}})
     payload = result.structured_content
@@ -576,6 +646,12 @@ async def test_create_prepare_builds_form_from_merged_schema_without_writing(ser
     assert payload["values"] == {"status": "Open", "organization": "Acme"}
     assert payload["missing_required"] == []
     assert {field["fieldname"] for field in payload["fields"]} == {"organization", "status"}
+    organization = next(field for field in payload["fields"] if field["fieldname"] == "organization")
+    assert organization["options"] == "CRM Organization"
+    assert organization["choices"] == [
+        {"label": "Acme Corp", "value": "Acme Corp"},
+        {"label": "TechStart Inc", "value": "TechStart Inc"},
+    ]
     assert "nothing has been created" in text_of(result)
     assert result.meta["ui"]["resourceUri"]
 

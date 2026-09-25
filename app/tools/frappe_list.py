@@ -20,6 +20,17 @@ from app.tools.frappe_common import (
 )
 from app.ui.frappe_ui.resource import VIEW_URI
 
+_CRM_DEAL_PIPELINE_FIELDS = (
+    "status",
+    "organization",
+    "lead_name",
+    "deal_value",
+    "currency",
+    "custom_service_line",
+    "probability",
+)
+_CRM_DEAL_CLOSED_STATUSES = {"Won", "Lost"}
+
 
 def register_tool(mcp) -> None:
     @mcp.tool(app=AppConfig(resource_uri=VIEW_URI, visibility=["model", "app"]))
@@ -38,14 +49,20 @@ def register_tool(mcp) -> None:
         returns at most ten fields total, always including `name`. The
         original five-field metadata selection order is preserved; the five
         extra slots prioritize Currency fields and their companion currency
-        fields, then custom fields before other scalar
-        fields. If `fields` is
+        fields, then custom fields before other scalar fields. For the default
+        `CRM Deal` pipeline result, the projection specifically includes
+        status, organization, lead name, deal value, currency, service line,
+        and probability; each record also includes `id` (the Frappe `name`)
+        and derived `heat`. Other DocTypes use the generic metadata projection.
+        If `fields` is
         supplied, the result contains `name` plus exactly those fields (up to
         Frappe's response limits), without adding automatic preview fields.
         If Frappe rejects explicitly requested fields, report that error rather
         than silently changing the requested projection. For the automatic
-        projection only, a 417 response causes lower-priority preview fields
-        to be dropped one at a time, with `name` retained.
+        generic automatic projection only, a 417 response causes
+        lower-priority preview fields to be dropped one at a time, with
+        `name` retained. The CRM Deal pipeline projection is kept intact and
+        reports upstream errors rather than dropping required pipeline data.
         The tool returns the records in the chat result and matching UI
         column metadata for the canvas. Do not call it again just to fetch
         fields when this call already returned records.
@@ -62,6 +79,18 @@ def register_tool(mcp) -> None:
         explicit_fields = bool(fields)
         if explicit_fields:
             selected_names = list(dict.fromkeys(["name", *fields]))
+        elif doctype == "CRM Deal":
+            missing_pipeline_fields = [
+                fieldname
+                for fieldname in _CRM_DEAL_PIPELINE_FIELDS
+                if fieldname not in valid_names
+            ]
+            if missing_pipeline_fields:
+                raise ValueError(
+                    "CRM Deal schema is missing pipeline field(s): "
+                    f"{', '.join(missing_pipeline_fields)}. Check the DocType schema."
+                )
+            selected_names = ["name", *_CRM_DEAL_PIPELINE_FIELDS]
         else:
             selected_names = default_list_fields(schema, metadata, limit=10)
         params: dict[str, Any] = {
@@ -78,13 +107,31 @@ def register_tool(mcp) -> None:
                 result = await get(f"/api/resource/{path_part(doctype)}", params)
                 break
             except FrappeRequestError as error:
-                if error.status_code != 417 or explicit_fields or selected_names == ["name"]:
+                if (
+                    error.status_code != 417
+                    or explicit_fields
+                    or doctype == "CRM Deal"
+                    or selected_names == ["name"]
+                ):
                     raise
                 selected_names = selected_names[:-1]
                 params["fields"] = json.dumps(selected_names)
         if not isinstance(result, list) or any(not isinstance(record, dict) for record in result):
             raise ValueError(f"Frappe returned an invalid record list for {doctype}.")
         records = result
+        if doctype == "CRM Deal" and not explicit_fields:
+            records = [
+                {
+                    **record,
+                    "id": record.get("name"),
+                    "heat": int(
+                        record.get("status") not in _CRM_DEAL_CLOSED_STATUSES
+                        and isinstance(record.get("probability"), (int, float))
+                        and record["probability"] >= 50
+                    ),
+                }
+                for record in records
+            ]
         if not records:
             return ToolResult(content=f"Found 0 {doctype} records.")
         response_fields = set(records[0])

@@ -1,11 +1,13 @@
 """Prepare a schema-driven, editable Frappe creation form without writing."""
 
+import json
 from typing import Any
 
 from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
-from app.tools.frappe_common import doctype_schema, validate_doctype
+from app.config import settings
+from app.tools.frappe_common import doctype_schema, get, path_part, validate_doctype
 from app.ui.frappe_ui.resource import VIEW_URI
 
 _SYSTEM_FIELDS = {
@@ -42,8 +44,13 @@ def _enabled(value: Any) -> bool:
 
 
 async def _form_fields(
-    schema: dict[str, Any], *, allow_tables: bool = True
+    schema: dict[str, Any],
+    *,
+    allow_tables: bool = True,
+    link_choices: dict[str, list[dict[str, str]]] | None = None,
 ) -> list[dict[str, Any]]:
+    if link_choices is None:
+        link_choices = {}
     fields = []
     raw_fields = schema.get("fields", [])
     if not isinstance(raw_fields, list):
@@ -83,7 +90,35 @@ async def _form_fields(
                 )
             child_schema = await doctype_schema(child_doctype)
             metadata["child_doctype"] = child_doctype
-            metadata["child_fields"] = await _form_fields(child_schema, allow_tables=False)
+            metadata["child_fields"] = await _form_fields(
+                child_schema, allow_tables=False, link_choices=link_choices
+            )
+        elif fieldtype == "Link":
+            linked_doctype = field.get("options")
+            if isinstance(linked_doctype, str) and linked_doctype.strip():
+                linked_doctype = linked_doctype.strip()
+                if linked_doctype not in link_choices:
+                    params = {
+                        "fields": json.dumps(["name"]),
+                        "limit_page_length": max(1, settings.FRAPPE_MAX_LIMIT),
+                        "limit_start": 0,
+                    }
+                    records = await get(
+                        f"/api/resource/{path_part(linked_doctype)}", params
+                    )
+                    if not isinstance(records, list) or any(
+                        not isinstance(record, dict) or not isinstance(record.get("name"), str)
+                        for record in records
+                    ):
+                        raise ValueError(
+                            f"Frappe returned invalid choices for Link field target "
+                            f"{linked_doctype!r}."
+                        )
+                    link_choices[linked_doctype] = [
+                        {"label": record["name"], "value": record["name"]}
+                        for record in records
+                    ]
+                metadata["choices"] = link_choices[linked_doctype]
         fields.append(metadata)
     return fields
 
@@ -131,7 +166,10 @@ def register_tool(mcp) -> None:
         unambiguous from context. This tool reads merged DocType metadata and
         opens an editable form in the app UI, including row editors for child
         tables. Child-table values, when supplied, are lists of row objects.
-        It does not save anything. The
+        Select fields retain their schema-defined values; Link fields include
+        a bounded list of visible target records as ``choices`` (each with
+        ``label`` and ``value``) while preserving ``options`` as the target
+        DocType. It does not save anything. The
         user reviews/edits the form and confirms by pressing Create. Never call
         the app-only frappe_create_record tool yourself; only that explicit UI
         action may invoke it. Frappe remains authoritative for conditional and

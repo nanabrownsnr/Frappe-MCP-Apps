@@ -30,9 +30,8 @@ function stageRank(status: string): number {
 }
 
 function toCard(deal: Deal): Card {
-  const openAndLikely = !CLOSED.has(deal.status) && deal.probability >= 50;
   return {
-    id: deal.name,
+    id: deal.id,
     status: deal.status,
     organization: deal.organization,
     lead_name: deal.lead_name,
@@ -40,7 +39,7 @@ function toCard(deal: Deal): Card {
     currency: deal.currency,
     custom_service_line: deal.custom_service_line,
     probability: deal.probability,
-    heat: openAndLikely ? 1 : 0,
+    heat: deal.heat,
   };
 }
 

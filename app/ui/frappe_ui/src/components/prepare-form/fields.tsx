@@ -105,7 +105,8 @@ function ScalarField({
               {field.label}
               {required ? <RequiredMark /> : null}
             </FieldLabel>
-            {field.fieldtype === "Select" ? (
+            {field.fieldtype === "Select" ||
+            (field.fieldtype === "Link" && !!field.choices?.length) ? (
               <NativeSelect
                 id={inputId}
                 className="w-full"
@@ -117,11 +118,20 @@ function ScalarField({
                 <NativeSelectOption value="">
                   {required ? "Select" : "None"}
                 </NativeSelectOption>
-                {selectOptions(field.options).map((option) => (
-                  <NativeSelectOption key={option} value={option}>
-                    {option}
-                  </NativeSelectOption>
-                ))}
+                {field.fieldtype === "Link"
+                  ? field.choices?.map((choice) => (
+                      <NativeSelectOption
+                        key={choice.value}
+                        value={choice.value}
+                      >
+                        {choice.label}
+                      </NativeSelectOption>
+                    ))
+                  : selectOptions(field.options).map((option) => (
+                      <NativeSelectOption key={option} value={option}>
+                        {option}
+                      </NativeSelectOption>
+                    ))}
               </NativeSelect>
             ) : field.fieldtype === "Small Text" ||
               field.fieldtype === "Text" ? (

@@ -16,7 +16,13 @@ export type Card = {
 
 type Column = { value: string; label: string; meta: string };
 
-export function money(amount: number, currency: string): string {
+export function money(amount: number, currency?: string): string {
+  if (!currency) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(amount);
+  }
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",

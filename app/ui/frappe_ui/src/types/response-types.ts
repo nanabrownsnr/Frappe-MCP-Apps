@@ -36,6 +36,7 @@ export type FrappeFormField = {
   label: string;
   fieldtype: FrappeFieldType;
   options: string | null;
+  choices?: { label: string; value: string }[];
   reqd: boolean;
   default: string | null;
   description: string | null;
@@ -84,6 +85,8 @@ export type CRMDealList = {
 };
 
 type CRMDealRecord = {
+  id: string;
+  heat: number;
   naming_series: "CRM-DEAL-.YYYY.-";
   organization: string;
   next_step: string | null;
