@@ -14,7 +14,10 @@ export default function PrepareForm({
 }) {
   return (
     <section className="flex min-h-svh flex-col">
-      <Header title={structuredContent.doctype} subtitle="Create" />
+      <Header
+        title={structuredContent.doctype}
+        subtitle={`Create ${structuredContent.doctype}`}
+      />
       <PrepareFormBody
         key={structuredContent.doctype}
         structuredContent={structuredContent}
