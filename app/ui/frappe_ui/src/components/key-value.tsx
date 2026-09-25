@@ -62,12 +62,18 @@ function Value({ value }: { value: unknown }) {
 export default function KeyValue({
   label,
   rows,
+  onClick,
 }: {
   label?: string;
   rows: KeyValueRow[];
+  onClick?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 overflow-hidden rounded-xl p-4 ring-1 ring-foreground/10">
+    <div
+      className="flex flex-col gap-2 overflow-hidden rounded-xl p-4 ring-1 ring-foreground/10"
+      onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
+    >
       {label && (
         <div className="text-base font-semibold uppercase">{label}</div>
       )}

@@ -7,6 +7,7 @@ export type ResultType = {
   };
   content: { type: string; text: string }[];
   structuredContent: StructuredContent;
+  isError: boolean;
 };
 
 export type StructuredContent =
