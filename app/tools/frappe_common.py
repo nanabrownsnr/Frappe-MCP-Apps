@@ -84,14 +84,15 @@ _REDACTED_FIELD_MARKERS = ("password", "secret", "token", "salary", "bank", "sin
 
 
 def default_list_fields(
-    schema: dict[str, Any], metadata: list[dict[str, Any]], limit: int = 8
+    schema: dict[str, Any], metadata: list[dict[str, Any]], limit: int = 10
 ) -> list[str]:
     """Choose a small generic list projection from Frappe's DocType metadata.
 
     Preserve the existing five-field selection order (name, title, list-view,
     search/global-search/preview hints, then schema order). Any additional
-    slots prioritize Currency and custom fields before the remaining schema
-    fields. The name field is always included.
+    slots prioritize Currency fields, their companion currency fields, and
+    custom fields before the remaining schema fields. The name field is always
+    included.
     """
     fields_by_name = {field["fieldname"]: field for field in metadata}
 
@@ -151,6 +152,12 @@ def default_list_fields(
         if field.get("fieldtype") == "Currency":
             add_extra(field.get("fieldname"))
 
+    # A Currency DocField's options commonly name its companion currency field.
+    # Select it before custom fields so currency values are usable in previews.
+    for field in metadata:
+        if field.get("fieldtype") == "Currency":
+            add_extra(field.get("options"))
+
     # `is_custom_field` is the Frappe metadata marker. The `custom_` prefix is
     # a useful fallback for older or customized metadata responses.
     for field in metadata:
@@ -159,11 +166,6 @@ def default_list_fields(
             isinstance(fieldname, str) and fieldname.startswith("custom_")
         ):
             add_extra(fieldname)
-
-    # A Currency DocField's options commonly name its companion currency field.
-    for field in metadata:
-        if field.get("fieldtype") == "Currency":
-            add_extra(field.get("options"))
 
     for fieldname in baseline[5:]:
         add_extra(fieldname)

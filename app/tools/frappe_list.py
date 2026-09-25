@@ -35,9 +35,10 @@ def register_tool(mcp) -> None:
 
         First call frappe_doctypes to identify the exact DocType name. Omit
         `fields` for the default behavior: the tool loads DocType metadata and
-        returns at most eight fields total, always including `name`. The
-        original five-field metadata selection order is preserved; the three
-        extra slots prioritize Currency and custom fields before other scalar
+        returns at most ten fields total, always including `name`. The
+        original five-field metadata selection order is preserved; the five
+        extra slots prioritize Currency fields and their companion currency
+        fields, then custom fields before other scalar
         fields. If `fields` is
         supplied, the result contains `name` plus exactly those fields (up to
         Frappe's response limits), without adding automatic preview fields.
@@ -62,7 +63,7 @@ def register_tool(mcp) -> None:
         if explicit_fields:
             selected_names = list(dict.fromkeys(["name", *fields]))
         else:
-            selected_names = default_list_fields(schema, metadata, limit=8)
+            selected_names = default_list_fields(schema, metadata, limit=10)
         params: dict[str, Any] = {
             "fields": json.dumps(selected_names),
             "limit_page_length": max(1, min(limit, settings.FRAPPE_MAX_LIMIT)),

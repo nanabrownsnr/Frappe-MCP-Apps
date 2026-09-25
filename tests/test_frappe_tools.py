@@ -143,7 +143,7 @@ def test_default_list_fields_prioritize_frappe_metadata_and_exclude_unsafe_types
     assert selected == ["name", "display_name", "list_field", "search_label", "global_field"]
 
 
-def test_eight_field_preview_preserves_original_order_then_adds_currency_and_custom_fields():
+def test_ten_field_preview_preserves_original_order_then_adds_currency_and_custom_fields():
     schema = {
         "title_field": "title",
         "search_fields": "search_label",
@@ -165,10 +165,16 @@ def test_eight_field_preview_preserves_original_order_then_adds_currency_and_cus
         ],
     }
 
-    selected = default_list_fields(schema, schema_fields(schema), limit=8)
+    selected = default_list_fields(schema, schema_fields(schema), limit=10)
 
     assert selected[:5] == ["name", "title", "list_field", "search_label", "ordinary_one"]
-    assert selected[5:] == ["expected_deal_value", "deal_value", "custom_service_line"]
+    assert selected[5:] == [
+        "expected_deal_value",
+        "deal_value",
+        "currency",
+        "custom_service_line",
+        "ordinary_two",
+    ]
 
 
 @pytest.mark.asyncio
@@ -201,7 +207,7 @@ async def test_doctypes_bad_upstream_shape_and_bad_input(server, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_list_default_selects_five_metadata_driven_fields(server, monkeypatch):
+async def test_list_default_selects_metadata_driven_fields(server, monkeypatch):
     async def schema(_doctype):
         return SCHEMA
 
@@ -224,7 +230,7 @@ async def test_list_default_selects_five_metadata_driven_fields(server, monkeypa
         "creation",
         "modified",
     ]
-    assert len(requested) <= 8
+    assert len(requested) <= 10
     assert "internal_note" not in requested
     assert result.structured_content["records"] == [RECORD]
     assert [column["key"] for column in result.structured_content["columns"]] == [
