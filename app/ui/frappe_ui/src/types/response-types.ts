@@ -9,7 +9,25 @@ export type ResultType = {
   structuredContent: StructuredContent;
 };
 
-export type StructuredContent = CRMDealList | CRMLead;
+export type StructuredContent = CRMDealList | FrappeGet | FrappeList;
+
+export type FrappeGet = {
+  doctype: string;
+  record: Record<string, unknown>;
+};
+
+export type FrappeList = {
+  doctype: string;
+  records: Record<string, unknown>[];
+  columns: FrappeColumn[];
+};
+
+export type FrappeColumn = {
+  label: string;
+  key: string;
+  type: string;
+  options: string | null;
+};
 
 export type CRMDealList = {
   doctype: "CRM Deal";
@@ -119,8 +137,4 @@ type CRMDealColumn = {
     | "Text"
     | "Duration";
   options: string | null;
-};
-
-type CRMLead = {
-  doctype: "CRM Lead";
 };

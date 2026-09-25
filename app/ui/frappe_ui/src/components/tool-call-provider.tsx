@@ -17,7 +17,7 @@ import {
 import type { ResultType } from "@/types/response-types";
 import { generateId } from "@/lib/utils";
 
-type ToolCall = {
+export type ToolCall = {
   id: string;
   arguments?: Record<string, unknown>;
   result: ResultType | null;
