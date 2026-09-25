@@ -24,7 +24,7 @@ export default function Header({
       {/* Top Loader Bar */}
       {isLoading && (
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-inherit overflow-hidden">
-          <div className="h-full bg-primary animate-topLoader" />
+          <div className="h-full bg-primary/60 animate-topLoader" />
         </div>
       )}
 

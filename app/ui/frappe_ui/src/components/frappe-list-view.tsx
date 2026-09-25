@@ -28,7 +28,7 @@ export default function FrappeListView({
     mutationFn: async ({ name }: { name: string }) => {
       if (!app) throw new Error("No app found");
       const response = await app.callServerTool({
-        name: "frappe_ge",
+        name: "frappe_get",
         arguments: {
           doctype,
           name,
