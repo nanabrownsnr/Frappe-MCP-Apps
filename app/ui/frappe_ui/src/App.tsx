@@ -3,11 +3,13 @@ import { ToolCallProvider, useToolCall } from "./components/tool-call-provider";
 import Pipeline from "./components/pipeline";
 import type {
   CRMDealList,
+  FrappeCreatePrepare,
   FrappeGet,
   FrappeList,
 } from "./types/response-types";
 import FrappeListView from "./components/frappe-list-view";
 import FrappeGetView from "./components/frappe-get-view";
+import PrepareForm from "./components/prepare-form";
 
 export default function App() {
   return (
@@ -58,6 +60,14 @@ function MCPView() {
           );
         }
       }
+    }
+
+    if (toolName === "frappe_create_prepare") {
+      return (
+        <PrepareForm
+          structuredContent={structuredContent as FrappeCreatePrepare}
+        />
+      );
     }
 
     return null;

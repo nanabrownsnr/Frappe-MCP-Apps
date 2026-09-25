@@ -11,7 +11,9 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
+  /* --color-primary: var(--primary); */
+  --color-primary: #6c5ce7;
+
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -44,19 +46,20 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
   --color-dark: #0f0f1e;
-  --color-gray-3: #5c5c6e;
-  --color-gray-4: #8a8a9a;
-  --color-gray-5: #a8a8b4;
-  --color-gray-6: #c4c4ce;
-  --color-violet: #5b4dff;
-  --color-violet-mid: #e4e0ff;
-  --color-violet-h: #3d2eb8;
-  --color-violet-light: #f4f2ff;
-  --color-amber: #fde8c8;
-  --color-amber-text: #b45309;
-  --color-butter: #fff8eb;
-  --color-bg-page: #f6f6f8;
+  --color-gray-3: #6a6a88;
+  --color-gray-4: #8a8aa8;
+  --color-gray-5: #aaaabe;
+  --color-gray-6: #c8c8dc;
+  --color-violet: #6c5ce7;
+  --color-violet-mid: #eeeaff;
+  --color-violet-h: #5a4bd6;
+  --color-violet-light: #f5f3ff;
+  --color-amber: #ffedc8;
+  --color-amber-text: #7a4a1b;
+  --color-butter: #fefce8;
+  --color-bg-page: #f3f2f8;
 
   --color-host-bg: var(--host-background-color, #ffffff);
   --color-host-text: var(--host-text-color, #000000);

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type {
   CRMDealList,
+  FrappeCreatePrepare,
   FrappeGet,
   FrappeList,
   StructuredContent,
@@ -12,12 +13,14 @@ import FrappeListView from "./components/frappe-list-view";
 import { crmLeadData } from "./data/crm-lead";
 import { frappeGetData } from "./data/frappe-get";
 import FrappeGetView from "./components/frappe-get-view";
+import PrepareForm from "./components/prepare-form";
+import { frappeCreatePrepareData } from "./data/frappe-create-prepare";
 
 export default function LocalApp() {
   const [toolCall, setToolCall] = useState<ToolCall | null>({
     id: "1",
     arguments: {},
-    result: frappeGetData,
+    result: frappeCreatePrepareData,
     status: "completed",
   });
 
@@ -52,6 +55,14 @@ export default function LocalApp() {
           );
         }
       }
+    }
+
+    if (toolName === "frappe_create_prepare") {
+      return (
+        <PrepareForm
+          structuredContent={structuredContent as FrappeCreatePrepare}
+        />
+      );
     }
 
     return null;
