@@ -1,13 +1,20 @@
 """Prepare a schema-driven, editable Frappe creation form without writing."""
 
 import json
+import logging
 from typing import Any
 
 from fastmcp.apps import AppConfig
 from fastmcp.tools import ToolResult
 
 from app.config import settings
-from app.tools.frappe_common import doctype_schema, get, path_part, validate_doctype
+from app.tools.frappe_common import (
+    FrappePermissionError,
+    doctype_schema,
+    get,
+    path_part,
+    validate_doctype,
+)
 from app.ui.frappe_ui.resource import VIEW_URI
 
 _SYSTEM_FIELDS = {
@@ -37,6 +44,7 @@ _UNSUPPORTED_TYPES = {
     "Tab Break",
     "Table MultiSelect",
 }
+logger = logging.getLogger(__name__)
 
 
 def _enabled(value: Any) -> bool:
@@ -103,10 +111,26 @@ async def _form_fields(
                         "limit_page_length": max(1, settings.FRAPPE_MAX_LIMIT),
                         "limit_start": 0,
                     }
-                    records = await get(
-                        f"/api/resource/{path_part(linked_doctype)}", params
-                    )
-                    if not isinstance(records, list) or any(
+                    try:
+                        records = await get(
+                            f"/api/resource/{path_part(linked_doctype)}", params
+                        )
+                    except FrappePermissionError as error:
+                        if error.status_code != 403:
+                            raise
+                        logger.warning(
+                            "Frappe denied Link choices: parent_doctype=%r field=%r "
+                            "linked_doctype=%r status=%s; preparing form with defaults/fallback",
+                            schema.get("name", "<unknown>"),
+                            fieldname,
+                            linked_doctype,
+                            error.status_code,
+                        )
+                        link_choices[linked_doctype] = []
+                        records = None
+                    if records is None:
+                        choices = []
+                    elif not isinstance(records, list) or any(
                         not isinstance(record, dict) or not isinstance(record.get("name"), str)
                         for record in records
                     ):
@@ -114,11 +138,18 @@ async def _form_fields(
                             f"Frappe returned invalid choices for Link field target "
                             f"{linked_doctype!r}."
                         )
-                    link_choices[linked_doctype] = [
-                        {"label": record["name"], "value": record["name"]}
-                        for record in records
-                    ]
-                metadata["choices"] = link_choices[linked_doctype]
+                    else:
+                        link_choices[linked_doctype] = [
+                            {"label": record["name"], "value": record["name"]}
+                            for record in records
+                        ]
+                choices = list(link_choices[linked_doctype])
+                default = field.get("default")
+                if default is not None and str(default) and not any(
+                    choice["value"] == str(default) for choice in choices
+                ):
+                    choices.append({"label": str(default), "value": str(default)})
+                metadata["choices"] = choices
         fields.append(metadata)
     return fields
 

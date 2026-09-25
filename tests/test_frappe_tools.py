@@ -664,6 +664,48 @@ async def test_create_prepare_builds_form_from_merged_schema_without_writing(ser
 
 
 @pytest.mark.asyncio
+async def test_create_prepare_logs_forbidden_link_and_uses_default_but_not_for_401(
+    server, monkeypatch, caplog
+):
+    schema_data = {
+        "name": "CRM Deal",
+        "fields": [
+            {
+                "fieldname": "organization",
+                "label": "Organization",
+                "fieldtype": "Link",
+                "options": "CRM Organization",
+                "default": "Acme Corp",
+            }
+        ],
+    }
+
+    async def schema(_doctype):
+        return schema_data
+
+    async def forbidden(*args, **kwargs):
+        raise frappe_common.FrappePermissionError(403, "read denied")
+
+    monkeypatch.setattr(frappe_create_prepare, "doctype_schema", schema)
+    monkeypatch.setattr(frappe_create_prepare, "get", forbidden)
+    result = await invoke(server, "frappe_create_prepare", {"doctype": "CRM Deal"})
+
+    field = result.structured_content["fields"][0]
+    assert field["choices"] == [{"label": "Acme Corp", "value": "Acme Corp"}]
+    assert result.structured_content["values"]["organization"] == "Acme Corp"
+    assert "parent_doctype='CRM Deal'" in caplog.text
+    assert "field='organization'" in caplog.text
+    assert "linked_doctype='CRM Organization'" in caplog.text
+
+    async def unauthenticated(*args, **kwargs):
+        raise frappe_common.FrappePermissionError(401, "invalid credentials")
+
+    monkeypatch.setattr(frappe_create_prepare, "get", unauthenticated)
+    with pytest.raises(frappe_common.FrappePermissionError, match="invalid credentials"):
+        await invoke(server, "frappe_create_prepare", {"doctype": "CRM Deal"})
+
+
+@pytest.mark.asyncio
 async def test_create_record_validates_then_posts_and_returns_created_record(server, monkeypatch):
     schema_data = {
         **SCHEMA,

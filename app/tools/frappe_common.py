@@ -179,6 +179,14 @@ class FrappeRequestError(RuntimeError):
         super().__init__(detail)
 
 
+class FrappePermissionError(PermissionError):
+    """Authentication/authorization rejection with its HTTP status preserved."""
+
+    def __init__(self, status_code: int, detail: str):
+        self.status_code = status_code
+        super().__init__(detail)
+
+
 def validate_doctype(doctype: str) -> str:
     """Reject a missing DocType locally, with a useful argument name."""
     if not doctype.strip():
@@ -359,12 +367,14 @@ async def _request(
     status = response.status_code
     detail = _response_detail(response)
     if status == 401:
-        raise PermissionError(
+        raise FrappePermissionError(
+            status,
             "Frappe authentication failed (401). Check the saved API key and API secret, "
             "then retry."
         )
     if status == 403:
-        raise PermissionError(
+        raise FrappePermissionError(
+            status,
             "Frappe denied this request (403). The API-key user may lack the required read or "
             "write permission for this DocType or one of its fields; check Frappe roles and permissions."
         )
