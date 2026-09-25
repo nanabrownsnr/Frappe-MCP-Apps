@@ -50,7 +50,10 @@ export default function PrepareForm({
         setNotice({ tone: "error", text: message });
       } else {
         form.reset();
-        setNotice(null);
+        setNotice({
+          tone: "success",
+          text: "Created successfully",
+        });
       }
     },
     onError: (error) => {
