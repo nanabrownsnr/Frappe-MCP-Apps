@@ -1,5 +1,8 @@
 import React from "react";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
+import { useToolCall } from "./tool-call-provider";
 
 export default function Header({
   title,
@@ -14,6 +17,8 @@ export default function Header({
   className?: string;
   isLoading?: boolean;
 }) {
+  const { canGoBack, popToolCall } = useToolCall();
+
   return (
     <header
       className={cn(
@@ -28,9 +33,22 @@ export default function Header({
         </div>
       )}
 
-      <div>
-        <h1 className="text-base font-bold tracking-tight">{title}</h1>
-        <p className="text-sm text-gray-4">{subtitle}</p>
+      <div className="flex items-center gap-2">
+        {canGoBack && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Back"
+            onClick={popToolCall}
+          >
+            <ChevronLeft />
+          </Button>
+        )}
+        <div>
+          <h1 className="text-base font-bold tracking-tight">{title}</h1>
+          <p className="text-sm text-gray-4">{subtitle}</p>
+        </div>
       </div>
       {children}
     </header>

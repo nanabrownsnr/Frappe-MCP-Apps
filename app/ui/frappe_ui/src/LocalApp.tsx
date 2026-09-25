@@ -20,12 +20,30 @@ import PrepareForm from "./components/prepare-form";
 import { frappeCreatePrepareData } from "./data/frappe-create-prepare";
 
 export default function LocalApp() {
-  const [toolCall, setToolCall] = useState<ToolCall | null>({
-    id: "1",
-    arguments: {},
-    result: frappeCreatePrepareData,
-    status: "completed",
-  });
+  const [toolCalls, setToolCalls] = useState<ToolCall[]>([
+    {
+      id: "1",
+      arguments: {},
+      result: frappeCreatePrepareData,
+      status: "completed",
+    },
+    {
+      id: "1",
+      arguments: {},
+      result: crmLeadData,
+      status: "completed",
+    },
+  ]);
+  const toolCall = toolCalls.at(-1) ?? null;
+  const canGoBack = useMemo(() => toolCalls.length > 1, [toolCalls]);
+
+  const setToolCall = (next: ToolCall) => {
+    setToolCalls((prev) => [...prev, next]);
+  };
+
+  const popToolCall = () => {
+    setToolCalls((prev) => prev.slice(0, -1));
+  };
 
   const render = useMemo(() => {
     if (!toolCall) return null;
@@ -76,7 +94,9 @@ export default function LocalApp() {
       value={{
         app: null,
         toolCall,
+        canGoBack,
         setToolCall,
+        popToolCall,
         isConnected: false,
         error: null,
       }}

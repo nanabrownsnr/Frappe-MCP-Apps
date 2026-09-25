@@ -28,7 +28,9 @@ export type ToolCall = {
 interface ToolCallContextType {
   app: ReturnType<typeof useApp>["app"];
   toolCall: ToolCall | null;
+  canGoBack: boolean;
   setToolCall: (toolCall: ToolCall) => void;
+  popToolCall: () => void;
   isConnected: boolean;
   error: Error | null;
 }
@@ -36,32 +38,43 @@ interface ToolCallContextType {
 export const ToolCallContext = createContext<ToolCallContextType | null>(null);
 
 export function ToolCallProvider({ children }: { children: React.ReactNode }) {
-  const [toolCall, setToolCall] = useState<ToolCall | null>(null);
+  const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
+
+  const toolCall = useMemo(() => toolCalls.at(-1) ?? null, [toolCalls]);
+  const canGoBack = useMemo(() => toolCalls.length > 1, [toolCalls]);
+
+  const setToolCall = useCallback((toolCall: ToolCall) => {
+    setToolCalls((prev) => [...prev, toolCall]);
+  }, []);
+
+  const popToolCall = useCallback(() => {
+    setToolCalls((prev) => prev.slice(0, -1));
+  }, []);
 
   const onAppCreated = useCallback((createdApp: App) => {
-    createdApp.ontoolinput = (input) => {
-      setToolCall({
-        id: generateId(),
-        arguments: input.arguments,
-        result: null,
-        status: "running",
+    createdApp.ontoolresult = (result) => {
+      setToolCalls((prev) => {
+        return [
+          ...prev,
+          {
+            id: generateId(),
+            result: result,
+            status: "completed",
+          } as ToolCall,
+        ];
       });
     };
 
-    createdApp.ontoolresult = (result) => {
-      setToolCall((prev) =>
-        prev
-          ? { ...prev, result: result as ResultType, status: "completed" }
-          : {
-              id: generateId(),
-              result: result as ResultType,
-              status: "completed",
-            }
-      );
-    };
-
     createdApp.ontoolcancelled = () => {
-      setToolCall((prev) => (prev ? { ...prev, status: "error" } : null));
+      setToolCalls((prev) => {
+        if (prev.length === 0)
+          return [
+            { id: generateId(), result: null, status: "error" } as ToolCall,
+          ];
+        const next = [...prev];
+        next[next.length - 1] = { ...next[next.length - 1], status: "error" };
+        return next;
+      });
     };
   }, []);
 
@@ -77,8 +90,17 @@ export function ToolCallProvider({ children }: { children: React.ReactNode }) {
   useDocumentTheme();
 
   const value = useMemo(
-    () => ({ app, toolCall, setToolCall, isConnected, error }),
-    [app, toolCall, setToolCall, isConnected, error]
+    () =>
+      ({
+        app,
+        toolCall,
+        canGoBack,
+        setToolCall,
+        popToolCall,
+        isConnected,
+        error,
+      } satisfies ToolCallContextType),
+    [app, toolCall, setToolCall, popToolCall, isConnected, error]
   );
 
   return (
