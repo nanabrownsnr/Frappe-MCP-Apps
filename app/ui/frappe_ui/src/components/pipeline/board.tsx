@@ -50,12 +50,14 @@ function BoardCard({
   dragging,
   onDragStart,
   onDragEnd,
+  onClick,
 }: {
   card: Card;
   canDrag: boolean;
   dragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onClick?: () => void;
 }) {
   const value = card.deal_value ? money(card.deal_value, card.currency) : null;
   const flagged = card.heat > 0;
@@ -68,12 +70,16 @@ function BoardCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
+      onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
       role="group"
       aria-label={card.organization}
       className={cn(
         "group relative flex flex-col gap-1.5 rounded-[12px] border p-3 text-left transition-all",
         flagged ? "border-amber-text/40 bg-butter" : "border-border bg-white",
         canDrag && "cursor-grab",
+        onClick &&
+          "cursor-pointer hover:border-primary/50 hover:shadow-[0_2px_8px_rgba(15,15,30,.06)]",
         dragging && "opacity-40"
       )}
     >
@@ -120,11 +126,13 @@ export function Board({
   columns,
   canDrag = true,
   onStatusChange,
+  onCardClick,
 }: {
   cards: Card[];
   columns: Column[];
   canDrag?: boolean;
   onStatusChange?: (id: string, status: string) => void;
+  onCardClick?: (id: string) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
@@ -217,6 +225,9 @@ export function Board({
                           setDragId(null);
                           setOverCol(null);
                         }}
+                        onClick={
+                          onCardClick ? () => onCardClick(card.id) : undefined
+                        }
                       />
                     ))
                   )}

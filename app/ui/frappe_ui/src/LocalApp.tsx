@@ -8,7 +8,10 @@ import type {
 } from "./types/response-types";
 import { crmDealDta } from "./data/crm-deal";
 import Pipeline from "./components/pipeline";
-import type { ToolCall } from "./components/tool-call-provider";
+import {
+  ToolCallContext,
+  type ToolCall,
+} from "./components/tool-call-provider";
 import FrappeListView from "./components/frappe-list-view";
 import { crmLeadData } from "./data/crm-lead";
 import { frappeGetData } from "./data/frappe-get";
@@ -20,7 +23,7 @@ export default function LocalApp() {
   const [toolCall, setToolCall] = useState<ToolCall | null>({
     id: "1",
     arguments: {},
-    result: frappeCreatePrepareData,
+    result: crmDealDta,
     status: "completed",
   });
 
@@ -69,6 +72,18 @@ export default function LocalApp() {
   }, [toolCall]);
 
   return (
-    <main className="min-h-svh w-full bg-host-bg text-host-text">{render}</main>
+    <ToolCallContext.Provider
+      value={{
+        app: null,
+        toolCall,
+        setToolCall,
+        isConnected: false,
+        error: null,
+      }}
+    >
+      <main className="min-h-svh w-full bg-host-bg text-host-text">
+        {render}
+      </main>
+    </ToolCallContext.Provider>
   );
 }

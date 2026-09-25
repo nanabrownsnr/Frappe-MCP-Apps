@@ -33,7 +33,7 @@ interface ToolCallContextType {
   error: Error | null;
 }
 
-const ToolCallContext = createContext<ToolCallContextType | null>(null);
+export const ToolCallContext = createContext<ToolCallContextType | null>(null);
 
 export function ToolCallProvider({ children }: { children: React.ReactNode }) {
   const [toolCall, setToolCall] = useState<ToolCall | null>(null);

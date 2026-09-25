@@ -70,7 +70,11 @@ export default function KeyValue({
 }) {
   return (
     <div
-      className="flex flex-col gap-2 overflow-hidden rounded-xl p-4 ring-1 ring-foreground/10"
+      className={cn(
+        "flex flex-col gap-2 overflow-hidden rounded-xl p-4 ring-1 ring-foreground/10",
+        onClick &&
+          "cursor-pointer hover:border-primary/50 hover:shadow-[0_2px_8px_rgba(15,15,30,.06)]"
+      )}
       onClick={onClick}
       tabIndex={onClick ? 0 : undefined}
     >
