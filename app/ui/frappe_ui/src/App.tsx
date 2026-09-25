@@ -35,11 +35,11 @@ function MCPView() {
 
     if (toolName === "frappe_list") {
       switch (structuredContent.doctype) {
-        case "CRM Deal": {
-          return (
-            <Pipeline structuredContent={structuredContent as CRMDealList} />
-          );
-        }
+        // case "CRM Deal": {
+        //   return (
+        //     <Pipeline structuredContent={structuredContent as CRMDealList} />
+        //   );
+        // }
         default: {
           return (
             <FrappeListView
