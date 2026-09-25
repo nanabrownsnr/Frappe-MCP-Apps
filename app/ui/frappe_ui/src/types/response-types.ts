@@ -9,7 +9,54 @@ export type ResultType = {
   structuredContent: StructuredContent;
 };
 
-export type StructuredContent = CRMDealList | FrappeGet | FrappeList;
+export type StructuredContent =
+  | CRMDealList
+  | FrappeGet
+  | FrappeList
+  | FrappeCreatePrepare;
+
+export type FrappeFieldType =
+  | "Check"
+  | "Currency"
+  | "Data"
+  | "Date"
+  | "Datetime"
+  | "Duration"
+  | "Float"
+  | "Link"
+  | "Percent"
+  | "Select"
+  | "Small Text"
+  | "Table"
+  | "Text";
+
+export type FrappeFormField = {
+  fieldname: string;
+  label: string;
+  fieldtype: FrappeFieldType;
+  options: string | null;
+  reqd: boolean;
+  default: string | null;
+  description: string | null;
+  depends_on: string | null;
+  mandatory_depends_on: string | null;
+  precision: string | null;
+  child_doctype?: string;
+  child_fields?: FrappeFormField[];
+};
+
+export type FrappeMissingRequired = {
+  fieldname: string;
+  label: string;
+};
+
+export type FrappeCreatePrepare = {
+  mode: "create_form";
+  doctype: string;
+  fields: FrappeFormField[];
+  values: Record<string, unknown>;
+  missing_required: FrappeMissingRequired[];
+};
 
 export type FrappeGet = {
   doctype: string;
